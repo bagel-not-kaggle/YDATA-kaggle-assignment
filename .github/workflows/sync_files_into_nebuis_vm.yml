@@ -1,0 +1,38 @@
+name: Deploy to Nebius VM
+
+on:
+  push:
+    branches:
+      - main  # Change to your deployment branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up SSH key
+      - name: Setup SSH Key
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
+
+      # Step 3: Sync code to Nebius VM
+      - name: Sync Code to Nebius VM
+        run: |
+          rsync -avz --delete \
+          -e "ssh -o StrictHostKeyChecking=no" \
+          ./ \
+          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/path/to/deployment/directory
+
+      # Step 4: Run any post-deployment commands
+      - name: Run Post-Deployment Commands
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
+          cd /path/to/deployment/directory
+          # Example: Restart application or run a script
+          ./restart.sh
+          EOF
