@@ -26,7 +26,7 @@ jobs:
           rsync -avz --delete \
           -e "ssh -o StrictHostKeyChecking=no" \
           ./ \
-          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/path/to/deployment/directory
+          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}://usr/src
 
       # Step 4: Run any post-deployment commands
       - name: Run Post-Deployment Commands
