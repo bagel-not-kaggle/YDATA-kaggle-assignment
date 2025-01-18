@@ -7,7 +7,7 @@
 # Python
 __pycache__/
 *.py[cod]
-*.class
+*$py.class
 
 # Virtual Environment
 venv/
