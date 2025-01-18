@@ -1,0 +1,8 @@
+scikit-learn
+pandas
+argparse
+jupyter
+matplotlib
+seaborn
+plotly
+StandardScaler
