@@ -21,12 +21,15 @@ jobs:
           ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
 
       # Step 3: Sync code to Nebius VM
-      - name: Sync Code to Nebius VM
+      - name: Sync Code to Nebius VM with Sudo
         run: |
           rsync -avz --delete \
           -e "ssh -o StrictHostKeyChecking=no" \
           ./ \
-          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}://usr/src
+          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/usr/src
+          ssh -o StrictHostKeyChecking=no ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
+          sudo chown -R root:root /usr/src
+          EOF
 
       # Step 4: Run any post-deployment commands
       - name: Run Post-Deployment Commands
