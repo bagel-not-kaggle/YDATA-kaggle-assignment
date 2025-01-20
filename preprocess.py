@@ -7,64 +7,67 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Set pandas option to handle future behavior
-pd.set_option('future.no_silent_downcasting', True)
+def preprocess(
+    df: pd.DataFrame,
+    remove_outliers: bool = False,
+    fillna: bool = False,
+    output_path: Path = Path("data/processed/cleaned_data.csv")
+) -> pd.DataFrame:
+    # Drop duplicates
+    df = df.copy()  # Ensure the original DataFrame is not modified
+    df_clean = df.drop_duplicates()
+    logger.info(f"Initial shape: {df.shape}. After removing duplicates: {df_clean.shape}")
+
+    # Convert DateTime column
+    if 'DateTime' in df_clean.columns:
+        df_clean.loc[:, 'DateTime'] = pd.to_datetime(df_clean['DateTime'], errors='coerce')
+
+    # Convert certain columns to categorical
+    cat_cols = ['product_category_1', 'is_click', 'product_category_2', 'product', 'gender', 'var_1']
 
 
-def parse(csv_path: str) -> pd.DataFrame:
-    """
-    Preprocess the input CSV file.
+    # Remove outliers
+    if remove_outliers and 'age_level' in df_clean.columns:
+        mean = df_clean['age_level'].mean()
+        std = df_clean['age_level'].std()
+        outlier_condition = (
+            (df_clean["age_level"] > mean + 3 * std) |
+            (df_clean["age_level"] < mean - 3 * std)
+        )
+        outliers = df_clean[outlier_condition]
+        df_clean = df_clean.drop(outliers.index)
+        logger.info(f"Removed {len(outliers)} outliers based on age_level")
 
-    Args:
-        csv_path (str): Path to the input CSV file
+    # Fill missing values
+    if fillna:
+        df_clean.loc[:, 'product_category_1'] = df_clean['product_category_1'].astype(str)
+        df_clean.loc[:, 'product_category_2'] = df_clean['product_category_2'].astype(str)
 
-    Returns:
-        pd.DataFrame: Preprocessed dataframe
-    """
-    logger.info(f"Loading file from: {csv_path}")
+        # Fill missing values and combine into a single column
+        df_clean['product_category'] = df_clean['product_category_1'].fillna(df_clean['product_category_2'])
 
-    # Validate input path
-    if not Path(csv_path).exists():
-        raise FileNotFoundError(f"File not found: {csv_path}")
+        # Drop the original columns
+        df_clean.drop(columns=['product_category_1', 'product_category_2'], inplace=True)
 
-    # Load CSV to DataFrame
-    df = pd.read_csv(csv_path)
-    logger.info(f"Original shape: {df.shape}")
+        # Convert the combined column to category after fillna
+        df_clean.loc[:, 'product_category'] = df_clean['product_category'].astype('category')
 
-    # Store initial data quality metrics
-    initial_metrics = {
-        'total_rows': len(df),
-        'null_counts': df.isnull().sum().to_dict()
-    }
+        cols_to_fill = ['product_category', 'is_click', 'product', 'gender', 'var_1', 'age_level']
+        cols_to_fill = [col for col in cols_to_fill if col in df_clean.columns]
+        df_clean[cols_to_fill] = (
+        df_clean.groupby('user_id')[cols_to_fill]
+        .transform(lambda x: x.ffill().bfill())
+        .infer_objects(copy=False)  # Explicitly opt-in to inferred types
+            )
 
-    # Preprocessing steps
-    df_clean = (df
-                .drop_duplicates(keep='first')
-                .drop('product_category_2', axis=1))
+        # Drop rows with too many missing values
+        df_clean = df_clean.dropna(thresh=len(df_clean.columns) - 5)
+        logger.info(f"Final shape after fillna and dropping rows: {df_clean.shape}")
 
-    # Session deduplication
-    df_clean = df_clean[~df_clean['session_id'].duplicated(keep='first') |
-                        df_clean['session_id'].isna()]
-
-    # Handle missing values
-    df_clean.dropna(subset=['is_click'], axis=0, inplace=True)
-
-    # Fill user-related features
-    labels = ['gender', 'age_level', 'city_development_index', 'user_group_id']
-    filled_features = (df_clean.groupby('user_id')[labels]
-                       .transform(lambda x: x.ffill().bfill())
-                       .infer_objects(copy=False))  # Add infer_objects
-    df_clean[labels] = filled_features
-
-    # Remove rows with too many missing values
-    df_clean = df_clean.dropna(thresh=len(df_clean.columns) - 5)
-
-    # Log preprocessing results
-    logger.info(f"Final shape: {df_clean.shape}")
-    logger.info(f"Removed {len(df) - len(df_clean)} rows during preprocessing")
-
-    # Save preprocessed data
-    output_path = Path('data/processed/cleaned_data.csv')
+    for col in cat_cols:
+        if col in df_clean.columns:
+            df_clean.loc[:, col] = df_clean[col].astype(str).astype('category')
+    # Save preprocessed data to specified output
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df_clean.to_csv(output_path, index=False)
     logger.info(f"Saved preprocessed data to {output_path}")
@@ -72,17 +75,29 @@ def parse(csv_path: str) -> pd.DataFrame:
     return df_clean
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Preprocess CTR prediction dataset')
-    parser.add_argument("--csv_path", type=str, required=True,
-                        help="Path to the input CSV file")
-    parser.add_argument("--output_path", type=str,
-                        default="data/processed/cleaned_data.csv",
-                        help="Path to save the preprocessed data")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--csv_path", type=str, required=True, help="Path to the input CSV file")
+    parser.add_argument("--output_path", type=str, default="data/processed/cleaned_data.csv", help="Path to save the output CSV file")
+    parser.add_argument("--remove-outliers", action="store_true", help="Flag to remove outliers")
+    parser.add_argument("--fillna", action="store_true", help="Flag to fill missing values")
     args = parser.parse_args()
 
-    try:
-        df = parse(args.csv_path)
-    except Exception as e:
-        logger.error(f"Error during preprocessing: {str(e)}")
-        raise
+    csv_path = Path(args.csv_path)
+    if not csv_path.exists():
+        raise FileNotFoundError(f"File not found: {csv_path}")
+
+    logger.info(f"Loading file from: {csv_path}")
+    df = pd.read_csv(csv_path)
+
+    # Preprocess the DataFrame with the passed output path
+    df_clean = preprocess(
+        df,
+        remove_outliers=args.remove_outliers,
+        fillna=args.fillna,
+        output_path=Path(args.output_path)  # <-- Provide output path here
+    )
+
+    logger.info(f"Preprocessed data saved to {args.output_path}")
+
