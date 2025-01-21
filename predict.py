@@ -30,8 +30,7 @@ def predict(data: pd.DataFrame, model_path: str, batch_size: int = 30) -> np.nda
     #logger.info(f"Making predictions with batch size: {batch_size}")
     predictions = model.predict(data)  # Predict class labels
     #save predictions
-    predict_df = pd.DataFrame(predictions, columns=['is_click'])
-    predict_df.to_csv('predictions/predictions.csv', index=False)
+    predictions.to_csv('predictions/predictions.csv', index=False)
     return predictions
 
 if __name__ == "__main__":
