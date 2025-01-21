@@ -3,91 +3,105 @@ import pandas as pd
 import logging
 from pathlib import Path
 import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from catboost import CatBoostClassifier
 from sklearn.metrics import f1_score, precision_score, recall_score
-from features import create_features, get_target
+from preprocess import Preprocess
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_data():
+def train_model(X_train, y_train, X_test, y_test, model_name: str, cat_features: list):
     """
-    Load preprocessed data and split into train/test
-    """
-    logger.info("Loading preprocessed data...")
-    df = pd.read_csv('data/processed/cleaned_data.csv')
-
-    # Create features using imported functions
-    X = create_features(df)
-    y = get_target(df)
-
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=1
-    )
-
-    return (X_train, y_train), (X_test, y_test)
-
-
-def train_model(model_name: str):
-    """
-    Train and evaluate model
+    Train and evaluate a CatBoost model.
 
     Args:
-        model_name (str): Name of the model to train ('rf' for Random Forest)
+        X_train (pd.DataFrame): Training features.
+        y_train (pd.Series): Training labels.
+        X_test (pd.DataFrame): Test features.
+        y_test (pd.Series): Test labels.
+        model_name (str): Name of the model to train ('catboost').
+        cat_features (list): List of categorical feature indices or names.
+
+    Returns:
+        model (CatBoostClassifier): Trained model.
+        metrics (dict): Evaluation metrics.
     """
-    # Get data
-    logger.info(f"Training {model_name} model...")
-    (X_train, y_train), (X_test, y_test) = get_data()
-
-    # Initialize model based on model_name
-    if model_name == 'rf':
-        model = RandomForestClassifier(
-            random_state=10,
-            max_depth=30,
-            min_samples_leaf=10,
-            class_weight='balanced',
-            n_jobs=-1
-        )
+    # Initialize the CatBoost model
+    if model_name == 'catboost':
+        model = CatBoostClassifier(random_seed=42, verbose=100, eval_metric='F1', cat_features=cat_features)
     else:
-        raise ValueError(f"Model {model_name} not supported")
+        raise ValueError(f"Unsupported model: {model_name}")
 
-    # Train
-    model.fit(X_train, y_train)
+    # Train the model
+    logger.info(f"Training {model_name} model...")
+    X_train.drop(columns=['session_id', 'DateTime', 'user_id'], inplace=True)
+    X_test.drop(columns=['session_id', 'DateTime', 'user_id'],  inplace=True)
+    model.fit(X_train, y_train, eval_set=(X_test, y_test), use_best_model=True)
 
-    # Evaluate
+    # Evaluate the model
+    logger.info("Evaluating model...")
     y_pred = model.predict(X_test)
     metrics = {
         'f1': f1_score(y_test, y_pred, average="weighted"),
         'precision': precision_score(y_test, y_pred, average="weighted"),
-        'recall': recall_score(y_test, y_pred, average="weighted")
+        'recall': recall_score(y_test, y_pred, average="weighted"),
     }
 
     # Log metrics
     for metric_name, value in metrics.items():
         logger.info(f"{metric_name}: {value:.3f}")
 
-    # Save model
+    # Save the model
     model_dir = Path('models')
     model_dir.mkdir(exist_ok=True)
-    model_path = model_dir / f'{model_name}_model.joblib'
-    joblib.dump(model, model_path)
+    model_path = model_dir / f'{model_name}_model.cbm'
+    model.save_model(str(model_path))
     logger.info(f"Model saved to {model_path}")
 
     return model, metrics
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train CTR prediction model')
-    parser.add_argument('-m', '--model-name', type=str, default='rf',
-                        help='Model name (rf for Random Forest)')
+    parser = argparse.ArgumentParser(description='Train a machine learning model.')
+    parser.add_argument("--data_dir", type=str, required=True, help="Path to the directory with preprocessed data files")
+    parser.add_argument("--model_name", type=str, default="catboost", help="Name of the model to train (default: catboost)")
+    parser.add_argument("--cat_features", type=str, nargs='+', help="List of categorical feature names or indices")
     args = parser.parse_args()
 
-    try:
-        model, metrics = train_model(args.model_name)
-    except Exception as e:
-        logger.error(f"Error during training: {str(e)}")
-        raise
+    data_dir = Path(args.data_dir)
+
+    # Check if all required files are available
+    """
+    required_files = ["X_train.pkl", "X_test.pkl", "y_train.pkl", "y_test.pkl"]
+    for file in required_files:
+        if not (data_dir / file).exists():
+            raise FileNotFoundError(f"Required file '{file}' not found in {data_dir}")
+    """
+    # Load the preprocessed data
+    logger.info(f"Loading preprocessed data from {data_dir}...")
+    X_train = pd.read_pickle(data_dir / "X_train.pkl")
+    X_test = pd.read_pickle(data_dir / "X_test.pkl")
+    y_train = pd.read_pickle(data_dir / "y_train.pkl").squeeze()    # Squeeze to Series for CatBoost
+    y_test = pd.read_pickle(data_dir / "y_test.pkl").squeeze()     # Squeeze to Series for CatBoost
+    # Determine categorical features
+    if args.cat_features:
+        # If categorical features are specified by names
+        cat_features = [col for col in args.cat_features if col in X_train.columns]
+    else:
+        # Automatically detect categorical features based on their data types
+        cat_features = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
+    
+    for col in cat_features:
+        if col in X_train.columns:
+            X_train[col] = X_train[col].astype("category").cat.add_categories("missing").fillna("missing")
+        if col in X_test.columns:
+            X_test[col] = X_test[col].astype("category").cat.add_categories("missing").fillna("missing")
+
+
+    logger.info(f"Categorical features: {cat_features}")
+
+    # Train the model
+    model, metrics = train_model(X_train, y_train, X_test, y_test, args.model_name, cat_features)
+    logger.info("Training complete.")
