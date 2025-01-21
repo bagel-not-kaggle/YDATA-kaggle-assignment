@@ -9,7 +9,7 @@ from catboost import CatBoostClassifier
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def predict(data: pd.DataFrame, model_path: str, batch_size: int) -> np.ndarray:
+def predict(data: pd.DataFrame, model_path: str, batch_size: int = 30) -> np.ndarray:
     """
     Make predictions using the specified model.
 
@@ -27,7 +27,7 @@ def predict(data: pd.DataFrame, model_path: str, batch_size: int) -> np.ndarray:
     logger.info("Model loaded successfully.")
 
     # Placeholder for predictions (replace with actual prediction logic)
-    logger.info(f"Making predictions with batch size: {batch_size}")
+    #logger.info(f"Making predictions with batch size: {batch_size}")
     predictions = model.predict(data)  # Predict class labels
     #save predictions
     predict_df = pd.DataFrame(predictions, columns=['is_click'])
