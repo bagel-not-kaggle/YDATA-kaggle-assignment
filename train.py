@@ -6,13 +6,14 @@ import joblib
 from catboost import CatBoostClassifier
 from sklearn.metrics import f1_score, precision_score, recall_score
 from preprocess import Preprocess
+from sklearn.model_selection import train_test_split
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def train_model(X_train, y_train, X_test, y_test, model_name: str, cat_features: list):
+def train_model(X_train, y_train, model_name: str, cat_features: list, val_size: float = 0.2):
     """
     Train and evaluate a CatBoost model.
 
@@ -30,28 +31,23 @@ def train_model(X_train, y_train, X_test, y_test, model_name: str, cat_features:
     """
     # Initialize the CatBoost model
     if model_name == 'catboost':
-        model = CatBoostClassifier(random_seed=42, verbose=100, eval_metric='F1', cat_features=cat_features)
+        model = CatBoostClassifier(random_seed=42, verbose=100, eval_metric='F1', cat_features=cat_features,class_weights=[1, 10])
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 
     # Train the model
     logger.info(f"Training {model_name} model...")
     X_train.drop(columns=['session_id', 'DateTime', 'user_id'], inplace=True)
-    X_test.drop(columns=['session_id', 'DateTime', 'user_id'],  inplace=True)
-    model.fit(X_train, y_train, eval_set=(X_test, y_test), use_best_model=True)
+    # Split X_train into training and validation sets
+    X_train_final, X_valid, y_train_final, y_valid = train_test_split(
+        X_train, y_train, test_size=val_size, random_state=42
+    )
 
-    # Evaluate the model
-    logger.info("Evaluating model...")
-    y_pred = model.predict(X_test)
-    metrics = {
-        'f1': f1_score(y_test, y_pred, average="weighted"),
-        'precision': precision_score(y_test, y_pred, average="weighted"),
-        'recall': recall_score(y_test, y_pred, average="weighted"),
-    }
+    # Train the model
+    logger.info(f"Training {model_name} model with validation set...")
+    
 
-    # Log metrics
-    for metric_name, value in metrics.items():
-        logger.info(f"{metric_name}: {value:.3f}")
+    model.fit(X_train_final, y_train_final, eval_set=(X_valid, y_valid), use_best_model=True)
 
     # Save the model
     model_dir = Path('models')
@@ -59,8 +55,7 @@ def train_model(X_train, y_train, X_test, y_test, model_name: str, cat_features:
     model_path = model_dir / f'{model_name}_model.cbm'
     model.save_model(str(model_path))
     logger.info(f"Model saved to {model_path}")
-
-    return model, metrics
+    return model
 
 
 if __name__ == "__main__":
@@ -82,9 +77,7 @@ if __name__ == "__main__":
     # Load the preprocessed data
     logger.info(f"Loading preprocessed data from {data_dir}...")
     X_train = pd.read_pickle(data_dir / "X_train.pkl")
-    X_test = pd.read_pickle(data_dir / "X_test.pkl")
     y_train = pd.read_pickle(data_dir / "y_train.pkl").squeeze()    # Squeeze to Series for CatBoost
-    y_test = pd.read_pickle(data_dir / "y_test.pkl").squeeze()     # Squeeze to Series for CatBoost
     # Determine categorical features
     if args.cat_features:
         # If categorical features are specified by names
@@ -96,12 +89,11 @@ if __name__ == "__main__":
     for col in cat_features:
         if col in X_train.columns:
             X_train[col] = X_train[col].astype("category").cat.add_categories("missing").fillna("missing")
-        if col in X_test.columns:
-            X_test[col] = X_test[col].astype("category").cat.add_categories("missing").fillna("missing")
+
 
 
     logger.info(f"Categorical features: {cat_features}")
 
     # Train the model
-    model, metrics = train_model(X_train, y_train, X_test, y_test, args.model_name, cat_features)
+    model = train_model(X_train, y_train, args.model_name, cat_features)
     logger.info("Training complete.")
