@@ -34,7 +34,7 @@ product, product_category, campaign_id,
 
 user_group_id, gender, age_level, user_depth, city_development_index,
 
-var_1
+*var_1*
 
 **is_click**
 
@@ -52,11 +52,11 @@ var_1
 - Product Categories
 - Campaign Details
 
-## Wildcard
-- var_1
+### Wildcard
+- *var_1*
 
 ### Target Variable
-- Click Status (is_click)
+- **Click Status (is_click)**
 
 ## Installation & Setup
 
