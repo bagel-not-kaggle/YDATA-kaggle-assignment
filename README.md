@@ -25,6 +25,17 @@ project/
 ## Dataset Description
 Our dataset includes comprehensive user interaction records with the following features:
 
+## Full Features list:
+session_id, DateTime, user_id, webpage_id,
+
+product, product_category, campaign_id,
+
+user_group_id, gender, age_level, user_depth, city_development_index,
+
+var_1
+
+**is_click**
+
 ### User Features
 - User Demographics (age, gender)
 - User Behavior Metrics
@@ -38,6 +49,9 @@ Our dataset includes comprehensive user interaction records with the following f
 ### Product Features
 - Product Categories
 - Campaign Details
+
+## Wildcard
+- var_1
 
 ### Target Variable
 - Click Status (is_click)
