@@ -127,3 +127,4 @@ git push origin feature/YourFeature
 - Omer
 - Maor
 - Yonatan
+- Nicole
