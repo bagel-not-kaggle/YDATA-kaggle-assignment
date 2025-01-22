@@ -12,14 +12,16 @@ project/
 │   └── processed/          # Cleaned and preprocessed data
 ├── models/                 # Saved model files
 ├── notebooks/
-│   └── ctr_analysis.ipynb  # Exploratory Data Analysis
+│   ├── ctr_analysis.ipynb  # Exploratory Data Analysis
+    └── preprocessed.ipynb  # Exploring our processed files
 ├── app/                    # Application code
 └── src/
     ├── preprocess.py      # Data preprocessing pipeline
     ├── features.py        # Feature engineering
     ├── train.py           # Model training
     ├── predict.py         # Model prediction
-    └── results.py         # Results analysis
+    ├── results.py         # Results analysis
+    ├── tasks.py           # Automated workflow
 ```
 
 ## Dataset Description
