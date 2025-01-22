@@ -29,13 +29,14 @@ def predict(data: pd.DataFrame, model_path: str, batch_size: int = 30) -> np.nda
     # Placeholder for predictions (replace with actual prediction logic)
     #logger.info(f"Making predictions with batch size: {batch_size}")
     predictions = model.predict(data)  # Predict class labels
+    predictions = pd.DataFrame(predictions)
     #save predictions
     predictions.to_csv('predictions/predictions.csv', index=False)
     return predictions
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, required=True, help="Path to the input data file")
+    parser.add_argument("--data", type=str,default= "data/processed/X_test.pkl", help="Path to the input data file")
     parser.add_argument("--model-name", type=str, required=True, help="Path to the saved model file")
     parser.add_argument("--batch-size", type=int, default=32, help="Prediction batch size")
     args = parser.parse_args()

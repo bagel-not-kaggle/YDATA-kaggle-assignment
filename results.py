@@ -53,4 +53,4 @@ if __name__ == "__main__":
     parser.add_argument("--ground-truth", type=str, required=True, help="Path to ground truth CSV file")
     args = parser.parse_args()
 
-    analyze_results(args.predictions, args.ground_truth)
+    
