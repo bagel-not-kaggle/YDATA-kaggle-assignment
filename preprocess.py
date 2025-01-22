@@ -1,90 +1,87 @@
-import argparse
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+import numpy as np
 from pathlib import Path
-import logging
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+class Preprocessor:
+    def __init__(self):
+        self.scaler = StandardScaler()
+        self.ohe = OneHotEncoder(handle_unknown='ignore', sparse=False)
 
-# Set pandas option to handle future behavior
-pd.set_option('future.no_silent_downcasting', True)
+    def load_data(data_dir: Path) -> pd.DataFrame:
+        return pd.read_csv(data_dir)
 
+    def drop_nan(data: pd.DataFrame, selected_columns: list[str]) -> pd.DataFrame:
+        mask = data[selected_columns].notna().all(axis=1)
+        return data[mask]
 
-def parse(csv_path: str) -> pd.DataFrame:
-    """
-    Preprocess the input CSV file.
+    def drop_cloumns(data: pd.DataFrame, drop_columns: list[str]) -> pd.DataFrame:
+        return data.drop(columns=drop_columns, errors='ignore')
 
-    Args:
-        csv_path (str): Path to the input CSV file
+    def fill_nan_users(data: pd.DataFrame) -> pd.DataFrame:
+        labels = ['gender', 'age_level', 'user_group_id']
+        filled_features = (data.groupby('user_id')[labels]
+                           .transform(lambda x: x.ffill().bfill())
+                           .infer_objects(copy=False))  # Add infer_objects
+        data[labels] = filled_features
 
-    Returns:
-        pd.DataFrame: Preprocessed dataframe
-    """
-    logger.info(f"Loading file from: {csv_path}")
+    def feature_engineering(self, data):
+        # Example: Extract date-related features
+        data['hour'] = pd.to_datetime(data['datetime']).dt.hour
+        data['day_of_week'] = pd.to_datetime(data['datetime']).dt.dayofweek
+        data['month'] = pd.to_datetime(data['datetime']).dt.month
 
-    # Validate input path
-    if not Path(csv_path).exists():
-        raise FileNotFoundError(f"File not found: {csv_path}")
+        # Drop original datetime column
+        data.drop(['datetime'], axis=1, inplace=True)
 
-    # Load CSV to DataFrame
-    df = pd.read_csv(csv_path)
-    logger.info(f"Original shape: {df.shape}")
+        # Interaction features (example)
+        data['product_user_depth'] = data['product_category_1'] * data['user_depth']
 
-    # Store initial data quality metrics
-    initial_metrics = {
-        'total_rows': len(df),
-        'null_counts': df.isnull().sum().to_dict()
-    }
+        return data
 
-    # Preprocessing steps
-    df_clean = (df
-                .drop_duplicates(keep='first')
-                .drop('product_category_2', axis=1))
+    def feature_selection(self, data):
+        # Drop irrelevant or highly correlated columns
+        drop_cols = ['session_id', 'user_id', 'campaign_id', 'webpage_id']
+        data = data.drop(columns=drop_cols, errors='ignore')
 
-    # Session deduplication
-    df_clean = df_clean[~df_clean['session_id'].duplicated(keep='first') |
-                        df_clean['session_id'].isna()]
+        return data
 
-    # Handle missing values
-    df_clean.dropna(subset=['is_click'], axis=0, inplace=True)
+    def preprocess_data(self, data):
+        # drop nan values
+        selected_columns = ['session_id', 'DateTime', 'user_id', 'product', 'campaign_id', 'webpage_id', 'is_click']
+        data = self.drop_nan(data, selected_columns)
 
-    # Fill user-related features
-    labels = ['gender', 'age_level', 'city_development_index', 'user_group_id']
-    filled_features = (df_clean.groupby('user_id')[labels]
-                       .transform(lambda x: x.ffill().bfill())
-                       .infer_objects(copy=False))  # Add infer_objects
-    df_clean[labels] = filled_features
+        # Drop columns with high percentage of missing values
+        drop_columns = ['city_development_index']
+        data = self.drop_cloumns(data, drop_columns)
 
-    # Remove rows with too many missing values
-    df_clean = df_clean.dropna(thresh=len(df_clean.columns) - 5)
+        #fill user nan values
+        data = self.fill_nan_users(data)
 
-    # Log preprocessing results
-    logger.info(f"Final shape: {df_clean.shape}")
-    logger.info(f"Removed {len(df) - len(df_clean)} rows during preprocessing")
+        # Apply feature engineering
+        data = self.feature_engineering(data)
 
-    # Save preprocessed data
-    output_path = Path('data/processed/cleaned_data.csv')
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df_clean.to_csv(output_path, index=False)
-    logger.info(f"Saved preprocessed data to {output_path}")
+        # Apply feature selection
+        data = self.feature_selection(data)
 
-    return df_clean
+        # Separate features and target
+        X = data.drop('is_click', axis=1)
+        y = data['is_click']
 
+        # Define numerical and categorical features
+        numeric_features = X.select_dtypes(include=[np.number]).columns
+        categorical_features = X.select_dtypes(include=['object']).columns
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Preprocess CTR prediction dataset')
-    parser.add_argument("--csv_path", type=str, required=True,
-                        help="Path to the input CSV file")
-    parser.add_argument("--output_path", type=str,
-                        default="data/processed/cleaned_data.csv",
-                        help="Path to save the preprocessed data")
-    args = parser.parse_args()
+        # Preprocessing pipeline
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', self.scaler, numeric_features),
+                ('cat', self.ohe, categorical_features)
+            ]
+        )
 
-    try:
-        df = parse(args.csv_path)
-    except Exception as e:
-        logger.error(f"Error during preprocessing: {str(e)}")
-        raise
-
-
+        X_processed = preprocessor.fit_transform(X)
+        return train_test_split(X_processed, y, test_size=0.2, random_state=42)
