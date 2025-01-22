@@ -109,18 +109,21 @@ python train.py -m rf
 ```bash
 git checkout -b feature/YourFeature
 ```
-
-3. Commit your changes:
+3. Add your changes:
+```bash
+git add files or .
+```
+4. Commit your changes:
 ```bash
 git commit -m 'Add some feature'
 ```
 
-4. Push to the branch:
+5. Push to the branch:
 ```bash
 git push origin feature/YourFeature
 ```
 
-5. Create a new Pull Request
+6. Create a new Pull Request
 
 ## Team Members
 - Shay
