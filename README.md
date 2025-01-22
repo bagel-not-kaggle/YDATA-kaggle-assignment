@@ -12,18 +12,31 @@ project/
 │   └── processed/          # Cleaned and preprocessed data
 ├── models/                 # Saved model files
 ├── notebooks/
-│   └── ctr_analysis.ipynb  # Exploratory Data Analysis
+│   ├── ctr_analysis.ipynb  # Exploratory Data Analysis
+    └── preprocessed.ipynb  # Exploring our processed files
 ├── app/                    # Application code
 └── src/
     ├── preprocess.py      # Data preprocessing pipeline
     ├── features.py        # Feature engineering
     ├── train.py           # Model training
     ├── predict.py         # Model prediction
-    └── results.py         # Results analysis
+    ├── results.py         # Results analysis
+    ├── tasks.py           # Automated workflow
 ```
 
 ## Dataset Description
 Our dataset includes comprehensive user interaction records with the following features:
+
+## Full Features list:
+session_id, DateTime, user_id, webpage_id,
+
+product, product_category, campaign_id,
+
+user_group_id, gender, age_level, user_depth, city_development_index,
+
+*var_1*
+
+**is_click**
 
 ### User Features
 - User Demographics (age, gender)
@@ -39,8 +52,11 @@ Our dataset includes comprehensive user interaction records with the following f
 - Product Categories
 - Campaign Details
 
+### Wildcard
+- *var_1*
+
 ### Target Variable
-- Click Status (is_click)
+- **Click Status (is_click)**
 
 ## Installation & Setup
 
@@ -109,18 +125,21 @@ python train.py -m rf
 ```bash
 git checkout -b feature/YourFeature
 ```
-
-3. Commit your changes:
+3. Add your changes:
+```bash
+git add files or .
+```
+4. Commit your changes:
 ```bash
 git commit -m 'Add some feature'
 ```
 
-4. Push to the branch:
+5. Push to the branch:
 ```bash
 git push origin feature/YourFeature
 ```
 
-5. Create a new Pull Request
+6. Create a new Pull Request
 
 ## Team Members
 - Shay
