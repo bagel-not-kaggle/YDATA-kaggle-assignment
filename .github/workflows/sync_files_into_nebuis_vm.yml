@@ -29,9 +29,9 @@ jobs:
       - name: Sync All Files to Nebius VM
         run: |
           echo "Syncing all files to the VM..."
-          rsync -avz --delete -e "ssh" ./ ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/usr/src/
+          rsync -avz --delete -e "ssh" ./ ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/usr/src/project/
           
           ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
-          sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} /usr/src
+          sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} /usr/src/project
           sudo chmod -R 755 /usr/src
           EOF
