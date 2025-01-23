@@ -26,6 +26,14 @@ jobs:
       - name: Add Known Hosts
         run: ssh-keyscan -H ${{ secrets.NEBIUS_VM_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Prepare Destination Directory
+        run: |
+          echo "Creating the project directory on the VM if it doesn't exist..."
+          ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << EOF
+            sudo mkdir -p /usr/src/my_project
+            sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} /usr/src/my_project
+          EOF
+
       - name: Sync Selected Files and Folders to Nebius VM
         run: |
           echo "Syncing selected files and folders to the VM..."
