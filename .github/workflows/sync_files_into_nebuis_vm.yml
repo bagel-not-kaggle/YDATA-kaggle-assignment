@@ -17,7 +17,15 @@ jobs:
             echo "Missing required secrets"
             exit 1
           fi
-          
+
+      - name: Setup SSH Key
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
+
+      - name: Add Known Hosts
+        run: ssh-keyscan -H ${{ secrets.NEBIUS_VM_HOST }} >> ~/.ssh/known_hosts
+
       - name: Sync Selected Files and Folders to Nebius VM
         run: |
           echo "Syncing selected files and folders to the VM..."
