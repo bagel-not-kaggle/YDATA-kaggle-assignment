@@ -18,10 +18,26 @@ jobs:
             exit 1
           fi
 
+      - name: Verify File in Workspace
+        run: |
+          echo "Listing files in the current workspace:"
+          ls -al
+          
+          echo "Verifying the existence of preprocess.py:"
+          if [ ! -f "./preprocess.py" ]; then
+            echo "Error: preprocess.py not found in the workspace!"
+            exit 1
+          else
+            echo "File preprocess.py found."
+          fi
+          
       - name: Setup SSH Key
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
+
+      - name: Add Known Hosts
+        run: ssh-keyscan -H ${{ secrets.NEBIUS_VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Sync Code to Nebius VM
         run: |
