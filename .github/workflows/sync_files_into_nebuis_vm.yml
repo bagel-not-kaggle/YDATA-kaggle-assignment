@@ -1,31 +1,37 @@
 name: Deploy to Nebius VM
-
 on:
-  push:
-    branches:
-      - main  # Change to your deployment branch
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Checkout the code
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Set up SSH key
+      - name: Check Required Secrets
+        run: |
+          if [ -z "${{ secrets.NEBIUS_SSH_KEY }}" ] || \
+             [ -z "${{ secrets.NEBIUS_SSH_USER }}" ] || \
+             [ -z "${{ secrets.NEBIUS_VM_HOST }}" ]; then
+            echo "Missing required secrets"
+            exit 1
+          fi
+
       - name: Setup SSH Key
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
 
-      # Step 3: Sync code to Nebius VM
-      - name: Sync Code to Nebius VM with Sudo
+      - name: Add Known Hosts
+        run: ssh-keyscan -H ${{ secrets.NEBIUS_VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync Code to Nebius VM
         run: |
-          rsync -e "ssh -o StrictHostKeyChecking=no" \
-          ./preprocess.py \
-          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/usr/src
-          ssh -o StrictHostKeyChecking=no ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
-          sudo chown -R root:root /usr/src
+          rsync -e "ssh" ./preprocess.py ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/tmp/
+          
+          ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
+          sudo mv /tmp/preprocess.py /usr/src/preprocess.py
+          sudo chown ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} /usr/src/preprocess.py
+          sudo chmod 755 /usr/src/preprocess.py
           EOF
