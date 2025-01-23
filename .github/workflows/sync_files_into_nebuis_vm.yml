@@ -18,20 +18,28 @@ jobs:
             exit 1
           fi
           
-      - name: Setup SSH Key
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
-
-      - name: Add Known Hosts
-        run: ssh-keyscan -H ${{ secrets.NEBIUS_VM_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Sync All Files to Nebius VM
+      - name: Sync Selected Files and Folders to Nebius VM
         run: |
-          echo "Syncing all files to the VM..."
-          rsync -avz --delete -e "ssh" ./ ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/usr/src/project/
+          echo "Syncing selected files and folders to the VM..."
           
-          ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
-          sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} /usr/src/project
-          sudo chmod -R 755 /usr/src
+          # Define the project directory
+          PROJECT_DIR="/usr/src/my_project"
+
+          # Rsync only the specified files and folders
+          rsync -avz --delete \
+            --include='train.py' \
+            --include='predict.py' \
+            --include='preprocess.py' \
+            --include='tasks.py' \
+            --include='utils/***' \
+            --include='models/***' \
+            --include='data/***' \
+            --include='config/***' \
+            --exclude='*' \
+            -e "ssh" ./ ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:$PROJECT_DIR
+          
+          # Set proper permissions on the synced directory
+          ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << EOF
+            sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} $PROJECT_DIR
+            sudo chmod -R 755 $PROJECT_DIR
           EOF
