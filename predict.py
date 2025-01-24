@@ -40,7 +40,6 @@ if __name__ == "__main__":
     parser.add_argument("--model-name", type=str, required=True, help="Path to the saved model file")
     parser.add_argument("--batch-size", type=int, default=32, help="Prediction batch size")
     args = parser.parse_args()
-
     # Load the data
     logger.info(f"Loading data from {args.data}...")
     data = pd.read_pickle(args.data)
@@ -57,9 +56,9 @@ if __name__ == "__main__":
     y_test = pd.read_pickle("data/processed/y_test.pkl")
     y_pred = predictions > 0.5  # Apply thresholding if needed
     metrics = {
-        'f1': f1_score(y_test, y_pred, average="weighted"),
-        'precision': precision_score(y_test, y_pred, average="weighted"),
-        'recall': recall_score(y_test, y_pred, average="weighted"),
+        'f1': f1_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred),
+        'recall': recall_score(y_test, y_pred),
     }
 
     # Log metrics
