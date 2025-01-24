@@ -5,3 +5,6 @@ matplotlib
 seaborn
 pathlib
 argparse
+jupyter
+plotly
+StandardScaler
