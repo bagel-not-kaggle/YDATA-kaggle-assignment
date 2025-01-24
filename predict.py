@@ -64,3 +64,4 @@ if __name__ == "__main__":
     # Log metrics
     for metric_name, value in metrics.items():
         logger.info(f"{metric_name}: {value:.3f}")
+
