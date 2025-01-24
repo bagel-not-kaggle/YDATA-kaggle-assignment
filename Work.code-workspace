@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "../../../Desktop/Work"
+		},
+		{
+			"path": "../../../Documents/GitHub/Maor_proj/NewTest"
+		},
+		{
+			"path": "../Classes"
+		},
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"workbench.colorTheme": "Visual Studio Dark",
+		"workbench.preferredHighContrastColorTheme": "Default High Contrast",
+		"workbench.preferredHighContrastLightColorTheme": "Default High Contrast"
+	}
+}
