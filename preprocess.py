@@ -120,6 +120,14 @@ class DataPreprocessor:
         X_train, X_test, y_train, y_test = self.split_train_test(X, y)
 
         return df_clean, X_train, X_test, y_train, y_test
+    
+    def feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
+        df["day_of_week"] = df["DateTime"].dt.dayofweek
+        df["hour"] = df["DateTime"].dt.hour
+        df["day"] = df["DateTime"].dt.day
+        df["month"] = df["DateTime"].dt.month
+        df["year"] = df["DateTime"].dt.year
+        return df
 
     def save_data(self, df_clean, X_train, X_test, y_train, y_test):
         if self.save_as_pickle:
