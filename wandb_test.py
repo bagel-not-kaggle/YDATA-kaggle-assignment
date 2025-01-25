@@ -1,8 +1,8 @@
-import wandb
+import wandb_test
 import random
 
 # start a new wandb run to track this script
-wandb.init(
+wandb_test.init(
     # set the wandb project where this run will be logged
     project="my-awesome-project",
 
@@ -23,7 +23,7 @@ for epoch in range(2, epochs):
     loss = 2 ** -epoch + random.random() / epoch + offset
 
     # log metrics to wandb
-    wandb.log({"acc": acc, "loss": loss})
+    wandb_test.log({"acc": acc, "loss": loss})
 
 # [optional] finish the wandb run, necessary in notebooks
-wandb.finish()
+wandb_test.finish()

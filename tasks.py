@@ -18,106 +18,125 @@ logger = logging.getLogger(__name__)
 def preprocess_task(
     csv_path: str,
     output_path: str,
+    wandb_group_id: str,
     remove_outliers: bool = False,
     fillna: bool = False,
     use_dummies: bool = True,
     save_as_pickle: bool = True
 ):
     """
-    Task to preprocess data using the DataPreprocessor class.
-
-    Args:
-        csv_path (str): Path to the raw input CSV file.
-        output_path (str): Path to save the preprocessed data.
-        remove_outliers (bool): Flag to remove outliers during preprocessing.
-        fillna (bool): Flag to fill missing values during preprocessing.
-        use_dummies (bool): Flag to apply `pd.get_dummies` for categorical variables.
-        save_as_pickle (bool): Flag to save outputs as Pickle instead of CSV.
+    Task to preprocess data using the DataPreprocessor class and log artifacts to WandB.
     """
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
     logger.info("Starting the preprocessing task...")
 
-    # Initialize the DataPreprocessor
-    preprocessor = DataPreprocessor(
-        output_path=Path(output_path),
-        remove_outliers=remove_outliers,
-        fillna=fillna,
-        use_dummies=use_dummies,
-        save_as_pickle=save_as_pickle
-    )
+    # Initialize WandB run with the shared group ID and "preprocess" job type
+    with wandb.init(
+        project="click-prediction",
+        entity="wandb",
+        group=wandb_group_id,
+        job_type="preprocess"
+    ) as run:
+        preprocessor = DataPreprocessor(
+            output_path=Path(output_path),
+            remove_outliers=remove_outliers,
+            fillna=fillna,
+            use_dummies=use_dummies,
+            save_as_pickle=save_as_pickle
+        )
 
-    # Load the raw data
-    try:
+        # Load the raw data
         df = preprocessor.load_data(Path(csv_path))
-    except FileNotFoundError as e:
-        logger.error(f"Error loading data: {e}")
-        raise
 
-    # Perform preprocessing
-    logger.info("Running the preprocessing pipeline...")
-    df_clean, X_train, X_test, y_train, y_test = preprocessor.preprocess(df)
+        # Perform preprocessing
+        logger.info("Running the preprocessing pipeline...")
+        df_clean, X_train, X_test, y_train, y_test = preprocessor.preprocess(df)
 
-    # Save preprocessed data
-    logger.info("Saving preprocessed data...")
-    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test)
+        # Save preprocessed data
+        logger.info("Saving preprocessed data...")
+        preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test)
 
-    logger.info("Preprocessing task completed successfully.")
+        # Log processed data as a WandB artifact
+        artifact = wandb.Artifact("processed_data", type="dataset")
+        artifact.add_dir(output_path)
+        run.log_artifact(artifact)
+
+        logger.info("Preprocessing task completed successfully.")
 
 @task
-def train_task(data_path: str, model_path: str, cat_features: list, val_size: float = 0.2, model_name: str = "catboost") -> None:
+def train_task(
+    data_path: str,
+    model_path: str,
+    cat_features: list,
+    wandb_group_id: str,
+    val_size: float = 0.2,
+    model_name: str = "catboost"
+):
     """
-    Training Task: Trains a model, logs key metrics, and saves the trained model.
-
-    Args:
-        data_path (str): Path to the preprocessed data (pickled file containing X_train and y_train).
-        model_path (str): Path to save the trained model.
-        cat_features (list): List of categorical feature names or indices.
-        val_size (float): Fraction of data to use for validation (default: 0.2).
-        model_name (str): Name of the model to train (default: catboost).
+    Task to train a model, log metrics and parameters to WandB, and save the trained model.
     """
-    logger.info("Loading data for training...")
-    # Load the preprocessed data
-    data_dir = Path(data_path)
-    X_train = pd.read_pickle(data_dir / "X_train.pkl")
-    y_train = pd.read_pickle(data_dir / "y_train.pkl").squeeze()
+    logger.info("Starting the training task...")
 
-    logger.info("Determining categorical features...")
-    # Ensure categorical features are properly set
-    for col in cat_features:
-        if col in X_train.columns:
-            X_train[col] = X_train[col].astype("category").cat.add_categories("missing").fillna("missing")
+    # Initialize WandB run with the shared group ID and "train" job type
+    with wandb.init(
+        project="click-prediction",
+        entity="wandb",
+        group=wandb_group_id,
+        job_type="train"
+    ) as run:
+        logger.info("Loading data for training...")
+        data_dir = Path(data_path)
+        X_train = pd.read_pickle(data_dir / "X_train.pkl")
+        y_train = pd.read_pickle(data_dir / "y_train.pkl").squeeze()
 
-    logger.info(f"Training {model_name} model...")
+        # Ensure categorical features are properly set
+        for col in cat_features:
+            if col in X_train.columns:
+                X_train[col] = X_train[col].astype("category").cat.add_categories("missing").fillna("missing")
 
-    # Set up the model
-    if model_name == 'catboost':
-        model = CatBoostClassifier(
-            random_seed=42,
-            verbose=100,
-            eval_metric='F1',
-            cat_features=cat_features,
-            class_weights=[1, 10],
-            learning_rate=0.03,
-            iterations=1000,
+        logger.info(f"Training {model_name} model...")
+
+        # Set up the model
+        if model_name == 'catboost':
+            model = CatBoostClassifier(
+                random_seed=42,
+                verbose=100,
+                eval_metric='F1',
+                cat_features=cat_features,
+                class_weights=[1, 10],
+                learning_rate=0.03,
+                iterations=1000,
+            )
+        else:
+            raise ValueError(f"Unsupported model: {model_name}")
+
+        # Split data into training and validation sets
+        X_train_final, X_valid, y_train_final, y_valid = train_test_split(
+            X_train, y_train, test_size=val_size, random_state=42
         )
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
 
-    # Split data into training and validation sets
-    X_train_final, X_valid, y_train_final, y_valid = train_test_split(
-        X_train, y_train, test_size=val_size, random_state=42
-    )
+        # Train the model
+        model.fit(X_train_final, y_train_final, eval_set=(X_valid, y_valid), use_best_model=True)
 
-    # Train the model
-    logger.info(f"Training the model with a validation set size of {val_size * 100:.1f}%...")
-    model.fit(X_train_final, y_train_final, eval_set=(X_valid, y_valid), use_best_model=True)
+        # Log training metrics
+        metrics = {
+            "best_iteration": model.get_best_iteration(),
+            "train_f1": model.best_score_["learn"]["F1"],
+            "valid_f1": model.best_score_["validation"]["F1"],
+        }
+        run.log(metrics)
 
-    # Save the trained model
-    model_dir = Path(model_path).parent
-    model_dir.mkdir(parents=True, exist_ok=True)
-    model.save_model(model_path)
-    logger.info(f"Model saved to {model_path}")
+        # Save the trained model
+        model_dir = Path(model_path).parent
+        model_dir.mkdir(parents=True, exist_ok=True)
+        model.save_model(model_path)
+        logger.info(f"Model saved to {model_path}")
+
+        # Log the model as a WandB artifact
+        artifact = wandb.Artifact("trained_model", type="model")
+        artifact.add_file(model_path)
+        run.log_artifact(artifact)
+
+        logger.info("Training task completed successfully.")
 
 
 @task
