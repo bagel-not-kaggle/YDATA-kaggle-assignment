@@ -36,9 +36,8 @@ class ModelTrainer:
                 "depth": trial.suggest_int("depth", 4, 8),
                 "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.1),
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1, 100),
-                "bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
                 "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"]),
-                "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "No"]),
+                "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 "class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
                 "eval_metric": "F1",
                 "early_stopping_rounds": 100,
@@ -53,26 +52,28 @@ class ModelTrainer:
 
             model = CatBoostClassifier(**params)
 
-            X_train_sub, X_val_sub, y_train_sub, y_val_sub = train_test_split(
-                X_train,
-                y_train,
-                test_size=0.2,
-                random_state=42,
-                stratify=y_train
-            )
+            # Use cross-validation here (discussed below)
+            skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            scores = []
 
-            model.fit(
-                X_train_sub,
-                y_train_sub,
-                cat_features=cat_features,
-                eval_set=(X_val_sub, y_val_sub),
-                early_stopping_rounds=50,
-                use_best_model=True
-            )
+            for train_idx, val_idx in skf.split(X_train, y_train):
+                X_train_cv, X_val_cv = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
 
-            y_pred_val = model.predict(X_val_sub)
-            f1 = f1_score(y_val_sub, y_pred_val)
-            return f1
+                model.fit(
+                    X_train_cv,
+                    y_train_cv,
+                    cat_features=cat_features,
+                    eval_set=(X_val_cv, y_val_cv),
+                    early_stopping_rounds=50,
+                    use_best_model=True
+                )
+
+                y_pred_val = model.predict(X_val_cv)
+                scores.append(f1_score(y_val_cv, y_pred_val))
+
+            return sum(scores) / len(scores)  # Average F1 score across folds
+
 
         self.logger.info("Starting hyperparameter tuning...")
         study = optuna.create_study(direction='maximize')
