@@ -40,10 +40,10 @@ class ModelTrainer:
             # Define hyperparameters to optimize
             params = {
                 "iterations": 1000,
-                "depth": trial.suggest_int("depth", 4, 8),
-                "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.1),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 100),
-                "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"]),
+                "depth": trial.suggest_int("depth", 6, 10),
+                "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.1),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 40),
+                "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 "class_weights": [1, 1 / 0.06767396213210575],  # Fixed class weights
                 "eval_metric": "F1",
@@ -54,9 +54,9 @@ class ModelTrainer:
 
             # Add bagging_temperature or subsample based on bootstrap_type
             if params["bootstrap_type"] == "Bayesian":
-                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.0, 1.0)
+                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.6)
             elif params["bootstrap_type"] == "Bernoulli":
-                params["subsample"] = trial.suggest_float("subsample", 0.5, 1.0)
+                params["subsample"] = trial.suggest_float("subsample", 0.5, 0.86)
 
             # Initialize the model
             model = CatBoostClassifier(**params)
