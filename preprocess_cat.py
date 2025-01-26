@@ -153,13 +153,12 @@ class DataPreprocessor:
         df = df.copy()
 
         # Generate time-based features
-        df['Month'] = df['DateTime'].dt.month
         df['Day'] = df['DateTime'].dt.day
         df['Hour'] = df['DateTime'].dt.hour
         df['Minute'] = df['DateTime'].dt.minute
         df['weekday'] = df['DateTime'].dt.weekday
 
-        cols_to_fill = ["Month", "Day", "Hour", "Minute", "weekday"]   
+        cols_to_fill = ["Day", "Hour", "Minute", "weekday"]   
         self.logger.info(f"Filling missing values for columns: {cols_to_fill}")
         df[cols_to_fill] = (df.groupby("user_id",observed = True)[cols_to_fill]
             .transform(lambda x: x.ffill().bfill())
