@@ -1,0 +1,78 @@
+Learning rate set to 0.122239
+0:	learn: 0.5509414	test: 0.5582800	best: 0.5582800 (0)	total: 290ms	remaining: 4m 50s
+100:	learn: 0.6029260	test: 0.5912686	best: 0.5920404 (99)	total: 13.8s	remaining: 2m 2s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5920403756
+bestIteration = 99
+
+Shrink model to first 100 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5616212	test: 0.5571941	best: 0.5571941 (0)	total: 277ms	remaining: 4m 36s
+100:	learn: 0.6034319	test: 0.5865585	best: 0.5893866 (50)	total: 28s	remaining: 4m 8s
+200:	learn: 0.6217837	test: 0.5823517	best: 0.5905156 (110)	total: 52.9s	remaining: 3m 30s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5905155566
+bestIteration = 110
+
+Shrink model to first 111 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5844819	test: 0.5818453	best: 0.5818453 (0)	total: 127ms	remaining: 2m 7s
+100:	learn: 0.6035594	test: 0.5984901	best: 0.5995519 (80)	total: 12.9s	remaining: 1m 54s
+200:	learn: 0.6220844	test: 0.5958995	best: 0.6005902 (120)	total: 27.5s	remaining: 1m 49s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.6005901972
+bestIteration = 120
+
+Shrink model to first 121 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5551986	test: 0.5581065	best: 0.5581065 (0)	total: 154ms	remaining: 2m 33s
+100:	learn: 0.6023581	test: 0.5875811	best: 0.5906536 (69)	total: 22.2s	remaining: 3m 17s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5906536432
+bestIteration = 69
+
+Shrink model to first 70 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5517091	test: 0.5534345	best: 0.5534345 (0)	total: 132ms	remaining: 2m 11s
+17:19:14.644 | [38;5;160mERROR[0m   | Flow run[35m 'porcelain-chinchilla'[0m - Crash detected! Execution was aborted by an interrupt signal.
+17:19:14.682 | [38;5;160mERROR[0m   | Flow run[35m 'porcelain-chinchilla'[0m - Finished in state [91mCrashed[0m('Execution was aborted by an interrupt signal.')
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test2.py", line 51, in <module>
+    train_flow("data/processed", "data/processed")
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flows.py", line 1392, in __call__
+    return run_flow(
+           ^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1511, in run_flow
+    ret_val = run_flow_sync(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1354, in run_flow_sync
+    engine.call_flow_fn()
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 766, in call_flow_fn
+    result = call_with_parameters(self.flow.fn, self.parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\callables.py", line 208, in call_with_parameters
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test2.py", line 42, in train_flow
+    model = trainer.train_and_evaluate()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test2.py", line 27, in train_and_evaluate_with_wandb
+    best_model = original_train_and_evaluate(*args, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\train.py", line 122, in train_and_evaluate
+    model.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 5245, in fit
+    self._fit(X, y, cat_features, text_features, embedding_features, None, graph, sample_weight, None, None, None, None, baseline, use_best_model,
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 2410, in _fit
+    self._train(
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 1790, in _train
+    self._object._train(train_pool, test_pool, params, allow_clear_pool, init_model._object if init_model else None)
+  File "_catboost.pyx", line 5017, in _catboost._CatBoost._train
+  File "_catboost.pyx", line 5066, in _catboost._CatBoost._train
+KeyboardInterrupt
+--- Error logging to API ---
+All connection attempts failed

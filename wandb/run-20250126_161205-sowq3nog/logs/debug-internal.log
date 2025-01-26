@@ -1,0 +1,17 @@
+{"time":"2025-01-26T16:12:05.3640024+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\wandb\\run-20250126_161205-sowq3nog\\logs\\debug-core.log"}
+{"time":"2025-01-26T16:12:05.4766295+02:00","level":"INFO","msg":"created new stream","id":"sowq3nog"}
+{"time":"2025-01-26T16:12:05.4766295+02:00","level":"INFO","msg":"stream: started","id":"sowq3nog"}
+{"time":"2025-01-26T16:12:05.4766295+02:00","level":"INFO","msg":"handler: started","stream_id":"sowq3nog"}
+{"time":"2025-01-26T16:12:05.4766295+02:00","level":"INFO","msg":"sender: started","stream_id":"sowq3nog"}
+{"time":"2025-01-26T16:12:05.4766295+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"sowq3nog"}
+{"time":"2025-01-26T16:12:05.7880821+02:00","level":"ERROR","msg":"HTTP error","status":403,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-01-26T16:12:05.7880821+02:00","level":"ERROR","msg":"sender: upsertRun:","error":"failed to upsert bucket: returned error 403 Forbidden: {\"errors\":[{\"message\":\"permission denied\",\"path\":[\"upsertBucket\"],\"extensions\":{\"code\":\"PERMISSION_ERROR\"}}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T16:12:05.8055992+02:00","level":"INFO","msg":"stream: closing","id":"sowq3nog"}
+{"time":"2025-01-26T16:12:05.8055992+02:00","level":"ERROR","msg":"sender: upsertConfig: RunRecord is nil"}
+{"time":"2025-01-26T16:12:06.1307796+02:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-01-26T16:12:06.1361337+02:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: returned error 404 Not Found: {\"errors\":[{\"message\":\"project maorblumberg/click-prediction not found during createRunFiles\",\"path\":[\"createRunFiles\"]}],\"data\":{\"createRunFiles\":null}}"}
+{"time":"2025-01-26T16:12:06.1366695+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-26T16:12:06.1366695+02:00","level":"INFO","msg":"handler: closed","stream_id":"sowq3nog"}
+{"time":"2025-01-26T16:12:06.1366695+02:00","level":"INFO","msg":"writer: Close: closed","stream_id":"sowq3nog"}
+{"time":"2025-01-26T16:12:06.1366695+02:00","level":"INFO","msg":"sender: closed","stream_id":"sowq3nog"}
+{"time":"2025-01-26T16:12:06.1372142+02:00","level":"INFO","msg":"stream: closed","id":"sowq3nog"}

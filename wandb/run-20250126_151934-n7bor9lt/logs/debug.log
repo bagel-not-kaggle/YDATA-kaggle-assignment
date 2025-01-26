@@ -1,0 +1,26 @@
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_setup.py:_flush():68] Current SDK version is 0.19.4
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_setup.py:_flush():68] Configure stats pid to 29332
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_setup.py:_flush():68] Loading settings from C:\Users\maorb\.config\wandb\settings
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_setup.py:_flush():68] Loading settings from C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb\settings
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_setup.py:_flush():68] Loading settings from environment variables
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_init.py:setup_run_log_directory():624] Logging user logs to C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb\run-20250126_151934-n7bor9lt\logs\debug.log
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_init.py:setup_run_log_directory():625] Logging internal logs to C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb\run-20250126_151934-n7bor9lt\logs\debug-internal.log
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_init.py:init():743] calling init triggers
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_init.py:init():748] wandb.init called with sweep_config: {}
+config: {}
+2025-01-26 15:19:34,273 INFO    MainThread:29332 [wandb_init.py:init():776] starting backend
+2025-01-26 15:19:34,508 INFO    MainThread:29332 [wandb_init.py:init():780] sending inform_init request
+2025-01-26 15:19:34,567 INFO    MainThread:29332 [backend.py:_multiprocessing_setup():97] multiprocessing start_methods=spawn, using: spawn
+2025-01-26 15:19:34,567 INFO    MainThread:29332 [wandb_init.py:init():795] backend started and connected
+2025-01-26 15:19:34,568 INFO    MainThread:29332 [wandb_init.py:init():888] updated telemetry
+2025-01-26 15:19:34,613 INFO    MainThread:29332 [wandb_init.py:init():915] communicating run to backend with 90.0 second timeout
+2025-01-26 15:19:34,955 ERROR   MainThread:29332 [wandb_init.py:init():944] encountered error: failed to upsert bucket: returned error 404 Not Found: {"errors":[{"message":"entity your-username not found during upsertBucket","path":["upsertBucket"]}],"data":{"upsertBucket":null}}
+2025-01-26 15:19:34,955 ERROR   MainThread:29332 [wandb_init.py:init():1454] error in wandb.init()
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\wandb\sdk\wandb_init.py", line 1444, in init
+    return wi.init(run_settings, run_config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\wandb\sdk\wandb_init.py", line 950, in init
+    raise error
+wandb.errors.errors.CommError: failed to upsert bucket: returned error 404 Not Found: {"errors":[{"message":"entity your-username not found during upsertBucket","path":["upsertBucket"]}],"data":{"upsertBucket":null}}
+2025-01-26 15:19:34,975 WARNING MsgRouterThr:29332 [router.py:message_loop():75] message_loop has been closed

@@ -1,0 +1,17 @@
+{"time":"2025-01-26T16:24:30.4186319+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\wandb\\run-20250126_162430-1og4fztg\\logs\\debug-core.log"}
+{"time":"2025-01-26T16:24:30.5369263+02:00","level":"INFO","msg":"created new stream","id":"1og4fztg"}
+{"time":"2025-01-26T16:24:30.5369263+02:00","level":"INFO","msg":"stream: started","id":"1og4fztg"}
+{"time":"2025-01-26T16:24:30.5369263+02:00","level":"INFO","msg":"handler: started","stream_id":"1og4fztg"}
+{"time":"2025-01-26T16:24:30.5369263+02:00","level":"INFO","msg":"sender: started","stream_id":"1og4fztg"}
+{"time":"2025-01-26T16:24:30.5369263+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"1og4fztg"}
+{"time":"2025-01-26T16:24:30.812238+02:00","level":"ERROR","msg":"HTTP error","status":400,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-01-26T16:24:30.812238+02:00","level":"ERROR","msg":"sender: upsertRun:","error":"failed to upsert bucket: returned error 400 Bad Request: {\"errors\":[{\"message\":\"you may not log runs directly to your organization, please try using your team entity\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T16:24:30.8326365+02:00","level":"INFO","msg":"stream: closing","id":"1og4fztg"}
+{"time":"2025-01-26T16:24:30.8326365+02:00","level":"ERROR","msg":"sender: upsertConfig: RunRecord is nil"}
+{"time":"2025-01-26T16:24:31.0587788+02:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-01-26T16:24:31.0587788+02:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: returned error 404 Not Found: {\"errors\":[{\"message\":\"project maorblumberg-tel-aviv-university-org/my-awesome-project not found during createRunFiles\",\"path\":[\"createRunFiles\"]}],\"data\":{\"createRunFiles\":null}}"}
+{"time":"2025-01-26T16:24:31.0597407+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-26T16:24:31.0597407+02:00","level":"INFO","msg":"handler: closed","stream_id":"1og4fztg"}
+{"time":"2025-01-26T16:24:31.0597407+02:00","level":"INFO","msg":"writer: Close: closed","stream_id":"1og4fztg"}
+{"time":"2025-01-26T16:24:31.0600097+02:00","level":"INFO","msg":"sender: closed","stream_id":"1og4fztg"}
+{"time":"2025-01-26T16:24:31.0600097+02:00","level":"INFO","msg":"stream: closed","id":"1og4fztg"}

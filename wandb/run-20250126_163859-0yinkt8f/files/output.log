@@ -1,0 +1,48 @@
+Learning rate set to 0.122239
+0:	learn: 0.5740494	test: 0.5757811	best: 0.5757811 (0)	total: 333ms	remaining: 5m 32s
+100:	learn: 0.6148329	test: 0.5855882	best: 0.5942379 (2)	total: 12.3s	remaining: 1m 49s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5942379494
+bestIteration = 2
+
+Shrink model to first 3 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5898293	test: 0.5854368	best: 0.5854368 (0)	total: 154ms	remaining: 2m 33s
+100:	learn: 0.6055495	test: 0.5870297	best: 0.5897523 (89)	total: 12.4s	remaining: 1m 50s
+200:	learn: 0.6367810	test: 0.5804502	best: 0.5899756 (114)	total: 26.3s	remaining: 1m 44s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5899756391
+bestIteration = 114
+
+Shrink model to first 115 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5877924	test: 0.5862292	best: 0.5862292 (0)	total: 171ms	remaining: 2m 50s
+100:	learn: 0.6145350	test: 0.5991592	best: 0.6012713 (87)	total: 18.2s	remaining: 2m 41s
+200:	learn: 0.6403618	test: 0.5906542	best: 0.6014354 (102)	total: 33.3s	remaining: 2m 12s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.6014354008
+bestIteration = 102
+
+Shrink model to first 103 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5833119	test: 0.5878976	best: 0.5878976 (0)	total: 168ms	remaining: 2m 47s
+100:	learn: 0.6123345	test: 0.5835042	best: 0.5914575 (18)	total: 13.9s	remaining: 2m 3s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5914574514
+bestIteration = 18
+
+Shrink model to first 19 iterations.
+Learning rate set to 0.122239
+0:	learn: 0.5684615	test: 0.5616972	best: 0.5616972 (0)	total: 162ms	remaining: 2m 41s
+100:	learn: 0.6119330	test: 0.5888552	best: 0.5955033 (15)	total: 21.7s	remaining: 3m 13s
+Stopped by overfitting detector  (100 iterations wait)
+
+bestTest = 0.5955033179
+bestIteration = 15
+
+Shrink model to first 16 iterations.
+16:41:01.633 | [36mINFO[0m    | Task run 'train_and_evaluate-d01' - Finished in state [32mCompleted[0m()
