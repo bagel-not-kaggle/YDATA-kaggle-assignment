@@ -50,6 +50,7 @@ class ModelTrainer:
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
                 "verbose": 0,
+                "early_stopping_rounds": 100,
             }
 
             # Add bagging_temperature or subsample based on bootstrap_type
