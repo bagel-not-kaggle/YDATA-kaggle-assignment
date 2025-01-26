@@ -8,6 +8,8 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 import optuna
 import pickle
 import numpy as np
+import json
+
 
 class ModelTrainer:
     def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None):
@@ -111,8 +113,9 @@ class ModelTrainer:
         self.logger.info(f"Best hyperparameters: {study.best_params}")
 
         #save best hyperparameters as pickle
-        with open(f'data/Hyperparams/best_params.pkl{run_id}', 'wb') as f:
-            pickle.dump(study.best_params, f)
+        with open(f'data/Hyperparams/best_params.pkl{run_id}', "w") as f:
+            json.dump(study.best_params, f, indent=4)  # `indent=4` makes the file human-readable
+
 
         return study.best_params
 
@@ -124,6 +127,9 @@ class ModelTrainer:
         best_f1 = 0
         best_model = None
         fold_scores = []
+        params = {'depth': 8, 'learning_rate': 0.09236469176564258, 'l2_leaf_reg': 19.401303554340448,
+                   'grow_policy': 'SymmetricTree', 
+                   'bootstrap_type': 'Bayesian', 'bagging_temperature': 0.8297362082411195}
 
         for fold_index in range(n_folds):
             self.logger.info(f"Processing fold {fold_index + 1}...")
@@ -138,17 +144,18 @@ class ModelTrainer:
                 verbose=100,
                 eval_metric='F1',
                 cat_features=cat_features,
+                **params,
             #auto_class_weights='Balanced',
-                max_depth=5,
+                #max_depth=5,
             #colsample_bylevel=0.7,
                 class_weights=[1, 1/a],
-                bagging_temperature=0.4,
-                grow_policy='SymmetricTree',
+                #bagging_temperature=0.4,
+                #grow_policy='SymmetricTree',
             # one_hot_max_size = 40,
             # learning_rate=0.1,
             #  subsample=.67,   #lower subsample showed progress
             #  max_leaves= 64, #only with lossguide
-                bootstrap_type = "Bayesian", #Bayesian uses the posterior probability of the object 
+                #bootstrap_type = "Bayesian", #Bayesian uses the posterior probability of the object 
                                             #to sample the trees in the growing process. Good for regularization and overfitting control.
             # bootstrap_type='Bernoulli', #Bernoulli is Stochastic Gradient Boosting on random subsets of features, faster and less overfitting
                 early_stopping_rounds=100,
