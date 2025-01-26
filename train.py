@@ -41,8 +41,8 @@ class ModelTrainer:
             params = {
                 "iterations": 1000,
                 "depth": trial.suggest_int("depth", 6, 10),
-                "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.1),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 40),
+                "learning_rate": trial.suggest_float("learning_rate", 0.05, 0.13),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 38),
                 "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 "class_weights": [1, 1 / 0.06767396213210575],  # Fixed class weights
@@ -56,7 +56,7 @@ class ModelTrainer:
             if params["bootstrap_type"] == "Bayesian":
                 params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.6)
             elif params["bootstrap_type"] == "Bernoulli":
-                params["subsample"] = trial.suggest_float("subsample", 0.5, 0.86)
+                params["subsample"] = trial.suggest_float("subsample", 0.5, 0.8)
 
             # Initialize the model
             model = CatBoostClassifier(**params)
@@ -113,7 +113,7 @@ class ModelTrainer:
         self.logger.info(f"Best hyperparameters: {study.best_params}")
 
         #save best hyperparameters as pickle
-        with open(f'data/Hyperparams/best_params.pkl{run_id}', "w") as f:
+        with open(f'data/Hyperparams/best_params{run_id}.json', 'w') as f:
             json.dump(study.best_params, f, indent=4)  # `indent=4` makes the file human-readable
 
 
