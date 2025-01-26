@@ -11,3 +11,4 @@ invoke
 torch
 pytorch-tabnet
 wandb
+optuna
