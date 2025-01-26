@@ -52,13 +52,20 @@ class ModelTrainer:
 
             model = CatBoostClassifier(**params)
 
-            # Use cross-validation here (discussed below)
+            # Cross-validation
             skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             scores = []
 
-            for train_idx, val_idx in skf.split(X_train, y_train):
+            for fold_index, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
+                # Create train-validation splits
                 X_train_cv, X_val_cv = X_train.iloc[train_idx], X_train.iloc[val_idx]
                 y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
+
+                # Debugging dataset shape
+                if len(y_train_cv.unique()) < 2 or len(y_val_cv.unique()) < 2:
+                    # Skip the fold if there's only one class in train/validation split
+                    print(f"Fold {fold_index}: Skipping due to only one class in y_train_cv or y_val_cv")
+                    continue
 
                 model.fit(
                     X_train_cv,
@@ -70,9 +77,17 @@ class ModelTrainer:
                 )
 
                 y_pred_val = model.predict(X_val_cv)
-                scores.append(f1_score(y_val_cv, y_pred_val))
 
-            return sum(scores) / len(scores)  # Average F1 score across folds
+                # Ensure F1 score calculation is valid
+                try:
+                    score = f1_score(y_val_cv, y_pred_val)
+                    scores.append(score)
+                except Exception as e:
+                    print(f"Error calculating F1 score on fold {fold_index}: {e}")
+
+            # Return the average F1 score across folds
+            return sum(scores) / len(scores) if scores else 0.0
+
 
 
         self.logger.info("Starting hyperparameter tuning...")
