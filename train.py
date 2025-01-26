@@ -7,6 +7,7 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import optuna
 import pickle
+import numpy as np
 
 class ModelTrainer:
     def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None):
@@ -30,7 +31,11 @@ class ModelTrainer:
         return cat_features
 
     def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series, cat_features: list, n_trials: int = 50, run_id: str = "1"):
+
+
+
         def objective(trial):
+            # Define hyperparameters to optimize
             params = {
                 "iterations": 1000,
                 "depth": trial.suggest_int("depth", 4, 8),
@@ -38,18 +43,20 @@ class ModelTrainer:
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1, 100),
                 "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
-                "class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
+                "class_weights": [1, 1 / 0.06767396213210575],  # Fixed class weights
                 "eval_metric": "F1",
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
                 "verbose": 0,
             }
 
+            # Add bagging_temperature or subsample based on bootstrap_type
             if params["bootstrap_type"] == "Bayesian":
                 params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.0, 1.0)
             elif params["bootstrap_type"] == "Bernoulli":
                 params["subsample"] = trial.suggest_float("subsample", 0.5, 1.0)
 
+            # Initialize the model
             model = CatBoostClassifier(**params)
 
             # Cross-validation
@@ -61,12 +68,12 @@ class ModelTrainer:
                 X_train_cv, X_val_cv = X_train.iloc[train_idx], X_train.iloc[val_idx]
                 y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
 
-                # Debugging dataset shape
-                if len(y_train_cv.unique()) < 2 or len(y_val_cv.unique()) < 2:
-                    # Skip the fold if there's only one class in train/validation split
-                    print(f"Fold {fold_index}: Skipping due to only one class in y_train_cv or y_val_cv")
+                # Check if both classes are present in the training and validation sets
+                if len(np.unique(y_train_cv)) < 2 or len(np.unique(y_val_cv)) < 2:
+                    self.logger.warning(f"Fold {fold_index}: Skipping due to only one class in y_train_cv or y_val_cv")
                     continue
 
+                # Train the model
                 model.fit(
                     X_train_cv,
                     y_train_cv,
@@ -76,17 +83,24 @@ class ModelTrainer:
                     use_best_model=True
                 )
 
+                # Predict on the validation set
                 y_pred_val = model.predict(X_val_cv)
 
-                # Ensure F1 score calculation is valid
+                # Calculate F1 score
                 try:
                     score = f1_score(y_val_cv, y_pred_val)
                     scores.append(score)
+                    self.logger.info(f"Fold {fold_index}: F1 score = {score}")
                 except Exception as e:
-                    print(f"Error calculating F1 score on fold {fold_index}: {e}")
+                    self.logger.error(f"Error calculating F1 score on fold {fold_index}: {e}")
+                    continue
 
             # Return the average F1 score across folds
-            return sum(scores) / len(scores) if scores else 0.0
+            if scores:
+                return np.mean(scores)
+            else:
+                self.logger.warning("All folds were skipped. Returning 0.0.")
+                return 0.0
 
 
 
