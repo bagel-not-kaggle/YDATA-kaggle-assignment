@@ -6,6 +6,7 @@ from catboost import CatBoostClassifier
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import optuna
+import pickle
 
 class ModelTrainer:
     def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None):
@@ -28,7 +29,7 @@ class ModelTrainer:
         cat_features = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
         return cat_features
 
-    def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series, cat_features: list, n_trials: int = 50):
+    def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series, cat_features: list, n_trials: int = 50, run_id: str = "1"):
         def objective(trial):
             params = {
                 "iterations": 1000,
@@ -78,6 +79,11 @@ class ModelTrainer:
         study.optimize(objective, n_trials=n_trials)
 
         self.logger.info(f"Best hyperparameters: {study.best_params}")
+
+        #save best hyperparameters as pickle
+        with open(f'data/Hyperparams/best_params.pkl{run_id}', 'wb') as f:
+            pickle.dump(study.best_params, f)
+
         return study.best_params
 
     def train_and_evaluate(self):
@@ -160,7 +166,9 @@ if __name__ == "__main__":
     parser.add_argument("--test_file", type=str, default="data/processed", help="Directory containing test set data")
     parser.add_argument("--model_name", type=str, default="catboost", help="Name of the model to train (default: catboost)")
     parser.add_argument("--tune", action="store_true", help="Flag to perform hyperparameter tuning")
+    parser.add_argument("--run_id", type=str, default="1", help="Run ID for hyperparameter tuning")
     parser.add_argument("--n_trials", type=int, default=50, help="Number of Optuna trials for hyperparameter tuning (default: 50)")
+    parser.add_argument("--train", action="store_true", help="Flag to train the model")
 
     args = parser.parse_args()
 
@@ -169,6 +177,7 @@ if __name__ == "__main__":
     if args.tune:
         X_train, y_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl"), pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
         cat_features = trainer.determine_categorical_features(X_train)
-        trainer.hyperparameter_tuning(X_train, y_train, cat_features, n_trials=args.n_trials)
+        trainer.hyperparameter_tuning(X_train, y_train, cat_features, n_trials=args.n_trials, run_id=args.run_id)
 
-    trainer.train_and_evaluate()
+    if args.train:
+        trainer.train_and_evaluate()
