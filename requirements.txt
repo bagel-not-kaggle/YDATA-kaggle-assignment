@@ -1,6 +1,5 @@
 scikit-learn
 pandas
-argparse
 jupyter
 matplotlib
 seaborn

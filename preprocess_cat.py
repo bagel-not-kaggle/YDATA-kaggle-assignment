@@ -13,13 +13,14 @@ class DataPreprocessor:
         fillna: bool = False,
         use_dummies: bool = True,
         save_as_pickle: bool = True,
+        callback=None
     ):
         self.output_path = output_path
         self.remove_outliers = remove_outliers
         self.fillna = fillna
         self.use_dummies = use_dummies
         self.save_as_pickle = save_as_pickle
-
+        self.callback = callback or (lambda x: None)  # Default no-op callback if none provided
         self.output_path.mkdir(parents=True, exist_ok=True)
 
         # Set up logging
@@ -29,9 +30,14 @@ class DataPreprocessor:
     def load_data(self, csv_path: Path) -> pd.DataFrame:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
-
+        df = pd.read_csv(csv_path)
+        self.callback({
+        "initial_rows": len(df),
+        "initial_columns": len(df.columns),
+        "initial_missing_values": df.isna().sum().sum()
+        })
         self.logger.info(f"Loading file from: {csv_path}")
-        return pd.read_csv(csv_path)
+        return df
 
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
@@ -44,6 +50,10 @@ class DataPreprocessor:
             num_outliers = outlier_condition.sum()
             df = df[~outlier_condition]
             self.logger.info(f"Removed {num_outliers} outliers based on age_level")
+            self.callback({
+        "rows_after_outlier_removal": len(df),
+        "outliers_removed": outlier_condition.sum()
+    })
         return df
 
     def fill_missing_values(self, df: pd.DataFrame, use_mode: bool = True) -> pd.DataFrame:
@@ -99,7 +109,7 @@ class DataPreprocessor:
         self.logger.info("Filled missing values with median.")
 
         # Apply forward/backward filling
-        cols_for_ffill_bfill = ["product", "campaign_id", "webpage_id", "gender", "var_1", "product_category","is_click"]
+        cols_for_ffill_bfill = ["product", "campaign_id", "webpage_id", "gender", "var_1", "product_category"]
         self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill}")
         df = _fill_with_ffill_bfill(df, cols_for_ffill_bfill)
         self.logger.info("Filled missing values with forward/backward fill.")
@@ -108,6 +118,7 @@ class DataPreprocessor:
             self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
             df = df.dropna(subset=["is_click"])
 
+        
         return df
 
     def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None):
@@ -156,7 +167,7 @@ class DataPreprocessor:
         )
         colls_to_fill_nas = df[cols_to_fill].isna().sum()
         if colls_to_fill_nas.sum() > 0:
-            self.logger.warning(f"Still missing values in columns: {colls_to_fill_nas[colls_to_fill_nas > 0].index.tolist()}")
+            self.logger.warning(f"Still missing values in columns: {colls_to_fill_nas.sum()}")
             df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
         self.logger.info("Filled missing values with forward/backward fill.")
         # Fill missing values
@@ -180,6 +191,12 @@ class DataPreprocessor:
         if get_dumm:
             columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
             df = pd.get_dummies(df, columns=columns_to_d)
+
+        self.callback({
+        "total_features": len(df.columns),
+        "categorical_features": len(df.select_dtypes(include=['object', 'category']).columns),
+        "numerical_features": len(df.select_dtypes(include=['int64', 'float64']).columns)
+            })
 
         return df
 
@@ -213,6 +230,11 @@ class DataPreprocessor:
             X_val_fold = X_train.iloc[val_idx]
             y_val_fold = y_train.iloc[val_idx]
             fold_datasets.append((X_train_fold, y_train_fold, X_val_fold, y_val_fold))
+            self.callback({
+            f"fold_{fold}_train_size": len(train_idx),
+            f"fold_{fold}_val_size": len(val_idx),
+            f"fold_{fold}_positive_ratio": y_train.iloc[train_idx].mean()
+            })
 
         self.logger.info("Created stratified folds for training data.")
 

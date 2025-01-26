@@ -8,10 +8,11 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 import optuna
 
 class ModelTrainer:
-    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost"):
+    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None):
         self.folds_dir = Path(folds_dir)
         self.test_file = Path(test_file)
         self.model_name = model_name
+        self.callback = callback
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -127,6 +128,10 @@ class ModelTrainer:
 
             self.logger.info(f"Fold {fold_index + 1} F1 score: {fold_f1}")
 
+
+            if self.callback:
+                self.callback({f"fold_{fold_index + 1}_f1": fold_f1})
+
             if fold_f1 > best_f1:
                 best_f1 = fold_f1
                 best_model = model
@@ -134,6 +139,9 @@ class ModelTrainer:
         avg_f1 = sum(fold_scores) / len(fold_scores)
         self.logger.info(f"Average F1 score across folds: {avg_f1}")
         self.logger.info(f"Best F1 score across folds: {best_f1}")
+
+        if self.callback:
+            self.callback({"average_f1": avg_f1, "best_f1": best_f1})
 
         self.logger.info(f"Loading test data from: {self.test_file}")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
@@ -143,6 +151,8 @@ class ModelTrainer:
         y_test_pred = best_model.predict(X_test)
         test_f1 = f1_score(y_test, y_test_pred)
         self.logger.info(f"F1 score on test set: {test_f1}")
+        if self.callback:
+            self.callback({"test_f1": test_f1})
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train and evaluate CatBoost using pre-saved folds.")

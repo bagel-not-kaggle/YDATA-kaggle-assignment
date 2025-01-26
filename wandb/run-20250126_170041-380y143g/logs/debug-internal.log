@@ -1,0 +1,21 @@
+{"time":"2025-01-26T17:00:41.4160996+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\wandb\\run-20250126_170041-380y143g\\logs\\debug-core.log"}
+{"time":"2025-01-26T17:00:41.5303687+02:00","level":"INFO","msg":"created new stream","id":"380y143g"}
+{"time":"2025-01-26T17:00:41.5303687+02:00","level":"INFO","msg":"stream: started","id":"380y143g"}
+{"time":"2025-01-26T17:00:41.5303687+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"380y143g"}
+{"time":"2025-01-26T17:00:41.5303687+02:00","level":"INFO","msg":"sender: started","stream_id":"380y143g"}
+{"time":"2025-01-26T17:00:41.5303687+02:00","level":"INFO","msg":"handler: started","stream_id":"380y143g"}
+{"time":"2025-01-26T17:00:41.9211063+02:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-26T17:02:45.6910438+02:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/files/maorblumberg-tel-aviv-university/ctr-prediction/380y143g/file_stream"}
+{"time":"2025-01-26T17:02:45.6910438+02:00","level":"ERROR+4","msg":"filestream: fatal error: filestream: failed to upload: 404 Not Found path=files/maorblumberg-tel-aviv-university/ctr-prediction/380y143g/file_stream: {\"error\":\"run ctr-prediction/380y143g not found while streaming file\"}"}
+{"time":"2025-01-26T17:02:46.7194218+02:00","level":"INFO","msg":"stream: closing","id":"380y143g"}
+{"time":"2025-01-26T17:02:46.7194218+02:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-26T17:02:46.7209182+02:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-26T17:02:46.9361574+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T17:02:46.9559978+02:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-01-26T17:02:46.9559978+02:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: returned error 404 Not Found: {\"errors\":[{\"message\":\"run ctr-prediction/380y143g not found during createRunFiles\",\"path\":[\"createRunFiles\"]}],\"data\":{\"createRunFiles\":null}}"}
+{"time":"2025-01-26T17:02:49.34658+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T17:02:53.8148136+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T17:03:02.6382843+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T17:03:21.9600724+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T17:03:54.7028515+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-01-26T17:04:54.8832334+02:00","level":"INFO","msg":"api: retrying HTTP error","status":409,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"run 380y143g was previously created and deleted; try a new run name\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}

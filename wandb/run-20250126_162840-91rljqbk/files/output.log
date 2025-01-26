@@ -1,0 +1,15 @@
+0:	learn: 0.1733536	test: 0.1776199	best: 0.1776199 (0)	total: 319ms	remaining: 5m 18s
+100:	learn: 0.2573344	test: 0.2540389	best: 0.2608763 (24)	total: 11.6s	remaining: 1m 43s
+200:	learn: 0.2646136	test: 0.2614733	best: 0.2614784 (199)	total: 31.3s	remaining: 2m 4s
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test.py", line 106, in <module>
+    model.fit(X_train_final, y_train_final, eval_set=(X_valid, y_valid), use_best_model=True)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 5245, in fit
+    self._fit(X, y, cat_features, text_features, embedding_features, None, graph, sample_weight, None, None, None, None, baseline, use_best_model,
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 2410, in _fit
+    self._train(
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 1790, in _train
+    self._object._train(train_pool, test_pool, params, allow_clear_pool, init_model._object if init_model else None)
+  File "_catboost.pyx", line 5017, in _catboost._CatBoost._train
+  File "_catboost.pyx", line 5066, in _catboost._CatBoost._train
+KeyboardInterrupt
