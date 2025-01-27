@@ -56,7 +56,7 @@ class DataPreprocessor:
     })
         return df
 
-    def fill_missing_values(self, df: pd.DataFrame, use_mode: bool = True) -> pd.DataFrame:
+    def fill_missing_values(self, df: pd.DataFrame, use_mode: bool = False) -> pd.DataFrame:
         """
         Fill missing values using mode, median, or forward/backward fill.
         Includes subfunctions for modularity.
@@ -81,7 +81,7 @@ class DataPreprocessor:
             return df
 
         # Subfunction for forward/backward filling (requires sorting)
-        def _fill_with_ffill_bfill(df, columns):
+        def _fill_with_ffill_bfill_user(df, columns):
             if "DateTime" in df.columns:
                 df = df.sort_values("DateTime")
             df[columns] = (
@@ -93,25 +93,25 @@ class DataPreprocessor:
                 df = df.sample(frac=1)  # Shuffle rows back to avoid keeping sort order
             return df
         
+        
         df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
         df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
 
         # Define columns to fill
         columns_to_fill_mode = ["product", "campaign_id", "webpage_id", "gender", "var_1", "product_category"]
-        columns_to_fill_median = ["age_level", "city_development_index", "user_depth"]
 
         # Apply mode-based filling if enabled
         if use_mode:
             df = _fill_with_mode(df, columns_to_fill_mode)
 
         # Apply median-based filling
-        df = _fill_with_median(df, columns_to_fill_median)
-        self.logger.info("Filled missing values with median.")
+        #self.logger.info("Filled missing values with median.")
 
         # Apply forward/backward filling
-        cols_for_ffill_bfill = ["product", "campaign_id", "webpage_id", "gender", "var_1", "product_category"]
-        self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill}")
-        df = _fill_with_ffill_bfill(df, cols_for_ffill_bfill)
+        cols_for_ffill_bfill1 = ["product", "campaign_id", "webpage_id", "gender",  "product_category"]
+        cols_for_ffill_bfill2 = ["age_level", "city_development_index","var_1", "user_depth"]
+        self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill2}")
+        df = _fill_with_ffill_bfill_user(df, cols_for_ffill_bfill2)
         self.logger.info("Filled missing values with forward/backward fill.")
         missing_is_click = df["is_click"].isna().sum()
         if missing_is_click > 0:
@@ -176,10 +176,11 @@ class DataPreprocessor:
         # Generate campaign-based features
         df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
         df['campaign_duration'] = df['DateTime'] - df['start_date']
-        df['campaign_duration_days'] = df['campaign_duration'].dt.total_seconds() / (3600 * 24)
+        df['campaign_duration_days'] = df['campaign_duration'].dt.total_seconds() / (3600)
         df['campaign_duration_days'] = df['campaign_duration_days'].fillna(
-            df.groupby('campaign_id', observed=True)['campaign_duration_days'].transform(lambda x: x.mode().iloc[0])
-        ).astype(int)
+            df.groupby('campaign_id', observed=True)['campaign_duration_days'].transform(lambda x: x.mode().iloc[0]))
+        df['campaign_duration_days'] = df.groupby('webpage_id', observed=True)['campaign_duration_days'].transform(
+            lambda x: x.ffill().bfill() if not x.mode().empty else x.fillna(0))
 
         # Drop unnecessary columns
         df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id', 'user_group_id'], inplace=True)
