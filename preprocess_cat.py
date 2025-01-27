@@ -176,11 +176,13 @@ class DataPreprocessor:
         # Generate campaign-based features
         df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
         df['campaign_duration'] = df['DateTime'] - df['start_date']
-        df['campaign_duration_days'] = df['campaign_duration'].dt.total_seconds() / (3600)
-        df['campaign_duration_days'] = df['campaign_duration_days'].fillna(
-            df.groupby('campaign_id', observed=True)['campaign_duration_days'].transform(lambda x: x.mode().iloc[0]))
-        df['campaign_duration_days'] = df.groupby('webpage_id', observed=True)['campaign_duration_days'].transform(
-            lambda x: x.ffill().bfill() if not x.mode().empty else x.fillna(0))
+        df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / (3600)
+        df['campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
+            df.groupby('campaign_id', observed=True)['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0])
+            )
+        df['campaign_duration_hours'] = pd.to_numeric(df['campaign_duration_hours'], errors='coerce')
+        self.logger.info(f'missing values in campaign_duration_hours: {df["campaign_duration_hours"].isna().sum()}')
+        
 
         # Drop unnecessary columns
         df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id', 'user_group_id'], inplace=True)
@@ -188,6 +190,12 @@ class DataPreprocessor:
         if catb:
             self.determine_categorical_features(df)
         # One-hot encoding if `get_dumm` is True
+        df['campaign_duration_hours'] = df.groupby('webpage_id', observed=True)['campaign_duration_hours'].transform(
+            lambda x: x.ffill().bfill() if not x.mode().empty else x.fillna(0))
+        
+
+        self.logger.info(f'missing values in campaign_duration_hours after: {df["campaign_duration_hours"].isna().sum()}')
+        
         if get_dumm:
             columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
             df = pd.get_dummies(df, columns=columns_to_d)
