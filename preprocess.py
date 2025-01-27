@@ -1,5 +1,7 @@
 import pandas as pd
 from pathlib import Path
+from sklearn.feature_selection import chi2
+# from sklearn.feature_selection import SelectKBest
 import numpy as np
 # import wandb
 
@@ -65,6 +67,34 @@ class Preprocessor:
                     self.user_info_mapping.loc[user_id, label]) else row[label]
         return row
 
+    def remove_highly_correlated_features(self, data, threshold=0.1):
+      # Calculate correlation matrix
+      numerical_columns = []
+      numerical_columns = data[numerical_columns].select_dtypes(include=['number']).columns
+      data = data[numerical_columns]
+      correlation_matrix = data.corr()
+
+      # Select features highly correlated with the target
+      correlated_features = correlation_matrix['is_click'][abs(correlation_matrix['is_click']) > threshold].index
+      return correlated_features
+
+    def select_features_chi2(self, data, alpha=0.05):
+        categorical_features = ['user_group_id', 'campaign_id', 'webpage_id', 'product_category_1', 'product_category_2','is_click']
+        data = data.dropna(subset=categorical_features)
+        X = data[categorical_features]
+        y = data['is_click']
+
+        # Perform Chi-Square Test
+        chi_scores, p_values = chi2(X, y)
+
+        results = pd.DataFrame({
+            'Feature': X.columns,
+            'Chi-Square Score': chi_scores,
+            'p-value': p_values
+        })
+
+        # Select features with p-value < 0.05
+        return results[results['p-value'] < alpha]
 
     def preprocess_data(self, data):
         # drop nan values
