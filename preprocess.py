@@ -1,25 +1,30 @@
-# Preprocess
-
 import pandas as pd
 from pathlib import Path
+import numpy as np
+# import wandb
 
 class Preprocessor:
     def __init__(self):
-        # self.scaler = StandardScaler()
+        self.user_labels = ['gender', 'age_level', 'user_group_id']
+        self.categorical_columns =['product', 'gender','user_group_id', 'campaign_id', 'webpage_id','product_category_1', 'product_category_2']
+        # self.wandb_run = wandb.init(project="shay-kaggle-competition")
 
     def load_data(self,data_dir: Path) -> pd.DataFrame:
         return pd.read_csv(data_dir)
 
-    def drop_nan(self, data: pd.DataFrame, selected_columns: list[str]) -> pd.DataFrame:
+    def drop_nan(self, data: pd.DataFrame) -> pd.DataFrame:
+        selected_columns = ['session_id', 'DateTime', 'user_id', 'product', 'campaign_id', 'webpage_id', 'is_click']
         mask = data[selected_columns].notna().all(axis=1)
+        # self.wandb_run.log({"dropped_nan_rows": selected_columns})
         return data[mask]
 
-    def drop_cloumns(self, data: pd.DataFrame, drop_columns: list[str]) -> pd.DataFrame:
+    def drop_cloumns(self, data: pd.DataFrame) -> pd.DataFrame:
+        # self.wandb_run.log({"dropped_nan_coulmns": drop_columns})
+        drop_columns = ['city_development_index', 'var_1']
         return data.drop(columns=drop_columns, errors='ignore')
 
-    def fill_nan_users(self, data: pd.DataFrame) -> pd.DataFrame:
-        labels = ['gender', 'age_level', 'user_group_id']
-        pass
+    def drop_dupliaction(self, data: pd.DataFrame) -> pd.DataFrame:
+        return data.drop_duplicates()
 
     def feature_engineering(self, data):
         # Example: Extract date-related features
@@ -33,47 +38,106 @@ class Preprocessor:
         # Interaction features (example)
         data['product_user_depth'] = data['product_category_1'] * data['user_depth']
 
-        return data
-
-    def feature_selection(self, data):
-        # Drop irrelevant or highly correlated columns
-        drop_cols = ['session_id', 'user_id', 'campaign_id', 'webpage_id']
-        data = data.drop(columns=drop_cols, errors='ignore')
-
+        # self.wandb_run.log({})
         return data
 
     def get_dummies(self, data):
-        columns = ['product', 'gender']
-        encoded_categorical = pd.get_dummies(data[columns],
-                                             columns=columns,
+        for col in self.categorical_columns:
+            data[col] = data[col].astype(str)
+
+        encoded_categorical = pd.get_dummies(data[self.categorical_columns],
+                                             columns=self.categorical_columns,
                                              drop_first=True,
                                              dummy_na=False)
 
         # 3. Concatenate encoded categorical features with numerical features:
-        data = data.drop(columns, axis=1)
+        data = data.drop(self.categorical_columns, axis=1)
         data = pd.concat([data, encoded_categorical], axis=1)
         return data
+
+    # Function to fill NaN values based on user mapping
+    def fill_user_info(self, row):
+        user_id = row['user_id']
+        for label in self.user_labels:
+            if pd.isna(row[label]):
+                row[label] = self.user_info_mapping.loc[
+                    user_id, label] if user_id in self.user_info_mapping.index and not pd.isna(
+                    self.user_info_mapping.loc[user_id, label]) else row[label]
+        return row
 
 
     def preprocess_data(self, data):
         # drop nan values
-        selected_columns = ['session_id', 'DateTime', 'user_id', 'product', 'campaign_id', 'webpage_id', 'is_click']
-        data = self.drop_nan(data, selected_columns)
+        data = self.drop_nan(data)
 
         # Drop columns with high percentage of missing values
-        drop_columns = ['city_development_index']
-        data = self.drop_cloumns(data, drop_columns)
+        data = self.drop_cloumns(data)
 
-        #fill user nan values
-        # data = self.fill_nan_users(data)
+        data = self.drop_dupliaction(data)
+
+        ### fill user nan values
+        # 1. Identify users with at least one NaN in the specified columns
+        users_with_nan = data[data[self.user_labels].isna().any(axis=1)]['user_id'].unique()
+
+        # 2. Filter the dataset to include only these users
+        data_with_nan = data[data['user_id'].isin(users_with_nan)]
+
+        # 3. Group by 'user_id' and get the most frequent value for each label (only for users with NaN)
+        self.user_info_mapping = data.groupby('user_id')[self.user_labels].agg(
+            lambda x: x.mode()[0] if not x.mode().empty else np.nan)
+
+        # 4. Apply the function only to the filtered dataset with NaN values
+        filtered_dataset_with_nan = data_with_nan.apply(self.fill_user_info, axis=1)
+
+        # 5. Update the original dataset with the imputed values
+        data.update(filtered_dataset_with_nan)  # This merges the imputed values back into the original dataset
 
         # Apply feature engineering
         data = self.feature_engineering(data)
 
-        # Apply feature selection
-        data = self.feature_selection(data)
-
         # Apply Dummies
-        data = self.feature_selection(data)
+        data = self.get_dummies(data)
 
         return data
+
+
+
+if __name__ == '__main__':
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.metrics import f1_score, confusion_matrix, classification_report
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+
+    # Load the data
+    data_path = '/content/sample_data/train_dataset_full.csv'
+    preprocessor = Preprocessor()
+    data = preprocessor.load_data(data_path)
+
+    # Separate features and target
+    X = data.drop('is_click', axis=1)
+    y = data['is_click']
+    # Initialize the RandomForestClassifier
+    classifier = RandomForestClassifier(random_state=42)
+    classifier.fit(X, y)
+    y_pred = classifier.predict(X)
+
+    # Calculate evaluation metrics
+    f1_score = f1_score(y, y_pred)
+    confusion_matrix = confusion_matrix(y, y_pred)
+    classification_report = classification_report(y, y_pred)
+
+    print(f"F1 Score: {f1_score:.2f}")
+    print("Classification Report:")
+    print(classification_report)
+
+    print("Confusion Matrix:")
+    # Display the confusion matrix using seaborn heatmap
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(confusion_matrix, annot=True, fmt="d", cmap="Blues",
+                xticklabels=['Predicted 0', 'Predicted 1'],
+                yticklabels=['Actual 0', 'Actual 1'])
+    plt.title("Confusion Matrix")
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.show()

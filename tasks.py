@@ -1,10 +1,12 @@
 #tasks
 
 from preprocess import Preprocessor
+# import wandb
 # from train import Trainer
 # from predict import Predictor
 import os
 
+# wandb_run = wandb.init(project="shay-kaggle-competition")
 # Define paths
 data_path = "data/raw/train_dataset_full.csv"
 model_path = "model/trained_model.pkl"
