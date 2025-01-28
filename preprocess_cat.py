@@ -15,7 +15,7 @@ class DataPreprocessor:
         save_as_pickle: bool = True,
         catb: bool = True,
         use_missing_with_mode: bool = False,
-        use_mode: bool = False,
+        fill_cat: bool = False,
 
         callback=None
     ):
@@ -28,7 +28,7 @@ class DataPreprocessor:
         self.save_as_pickle = save_as_pickle
         self.callback = callback or (lambda x: None)  # Default no-op callback if none provided
         self.output_path.mkdir(parents=True, exist_ok=True)
-        self.use_mode = use_mode
+        self.fill_cat = fill_cat
         
 
         # Set up logging
@@ -89,8 +89,7 @@ class DataPreprocessor:
             df[columns] = (
             df.groupby("user_id",observed = True)[columns]
             .transform(lambda x: x.ffill().bfill())
-            .infer_objects(copy=False)
-        )
+            .infer_objects(copy=False))
             if "DateTime" in df.columns:
                 df = df.sample(frac=1)  # Shuffle rows back to avoid keeping sort order
             return df
@@ -100,11 +99,11 @@ class DataPreprocessor:
         df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
 
         # Define columns to fill
-        columns_to_fill_mode = ["product", "campaign_id", "webpage_id", "gender", "var_1", "product_category"]
+        cat_cols_to_fill = ["product", "campaign_id", "webpage_id", "gender", "product_category"]
 
         # Apply mode-based filling if enabled
-        if self.use_mode:
-            df = _fill_with_mode(df, columns_to_fill_mode)
+        if self.fill_cat:
+            df = fill_with_ffill_bfill_user(df, cat_cols_to_fill)
 
         # Apply median-based filling
         #self.logger.info("Filled missing values with median.")
@@ -295,6 +294,7 @@ if __name__ == "__main__":
     parser.add_argument("--use-dummies", action="store_true", help="Flag to apply pd.get_dummies")
     parser.add_argument("--use-missing-with-mode", action="store_true", help="Flag to fill missing values with mode")
     parser.add_argument("--save-as-pickle", action="store_true", default=True, help="Flag to save as Pickle instead of CSV")
+    parser.add_argument("--fill-cat", action="store_true", help="Flag to fill categorical columns")
     args = parser.parse_args()
 
     preprocessor = DataPreprocessor(

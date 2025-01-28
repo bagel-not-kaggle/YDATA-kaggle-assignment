@@ -169,7 +169,7 @@ class ModelTrainer:
                 eval_metric='F1',
                 cat_features=cat_features,
                 **params,
-            #auto_class_weights='Balanced',
+                #auto_class_weights='Balanced',
                 #max_depth=5,
             #colsample_bylevel=0.7,
                 class_weights=[1, 1/a],
