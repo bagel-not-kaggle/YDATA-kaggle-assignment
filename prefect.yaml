@@ -1,0 +1,40 @@
+# Welcome to your prefect.yaml file! You can use this file for storing and managing
+# configuration for deploying your flows. We recommend committing this file to source
+# control along with your flow code.
+
+# Generic metadata about this project
+name: YDATA-kaggle-assignment
+prefect-version: 3.1.14
+
+# build section allows you to manage and build docker images
+build: null
+
+# push section allows you to manage if and how this project is uploaded to remote locations
+push: null
+
+# pull section allows you to provide instructions for cloning this project in remote locations
+pull:
+- prefect.deployments.steps.set_working_directory:
+    directory: C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment
+
+# the deployments section allows you to provide configuration for deploying flows
+deployments:
+- name: my_deployment
+  version: null
+  tags:
+  - my-tag
+  concurrency_limit: null
+  description: |-
+    High-level Prefect flow that:
+      1. Initializes a W&B run.
+      2. Preprocesses the data.
+      3. Optionally tunes hyperparameters.
+      4. Optionally trains/evaluates a final model.
+      5. Finishes the W&B run.
+  entrypoint: wandb_test2.py:preprocess_and_train_flow
+  parameters: {}
+  work_pool:
+    name: maorb
+    work_queue_name: null
+    job_variables: {}
+  schedules: []

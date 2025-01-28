@@ -1,0 +1,31 @@
+{
+  "os": "Windows-11-10.0.22631-SP0",
+  "python": "CPython 3.12.0",
+  "startedAt": "2025-01-28T09:19:54.540269Z",
+  "program": "C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\wandb_test3.py",
+  "codePath": "wandb_test3.py",
+  "git": {
+    "remote": "https://github.com/shaye3/YDATA-kaggle-assignment.git",
+    "commit": "1f7590482b35aaa3ac6743fb7133dd377ce905b7"
+  },
+  "email": "maorblumberg@gmail.com",
+  "root": "C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment",
+  "host": "Maor_Laptop",
+  "executable": "C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\venv\\Scripts\\python.exe",
+  "codePathLocal": "wandb_test3.py",
+  "cpu_count": 12,
+  "cpu_count_logical": 16,
+  "disk": {
+    "/": {
+      "total": "488543088640",
+      "used": "298000314368"
+    }
+  },
+  "memory": {
+    "total": "16849256448"
+  },
+  "cpu": {
+    "count": 12,
+    "countLogical": 16
+  }
+}

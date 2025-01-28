@@ -1,0 +1,55 @@
+10:30:15.797 | [38;5;160mERROR[0m   | Flow run[35m 'versed-hog'[0m - Encountered exception during execution: NameError("name 'pd' is not defined")
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 746, in run_context
+    yield self
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1354, in run_flow_sync
+    engine.call_flow_fn()
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 766, in call_flow_fn
+    result = call_with_parameters(self.flow.fn, self.parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\callables.py", line 208, in call_with_parameters
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py", line 45, in preprocess_flow
+    df = preprocessor.load_data(Path(csv_path))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\preprocess_cat.py", line 42, in load_data
+    self.callback({
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py", line 10, in wandb_callback
+    if isinstance(value, pd.DataFrame):
+                         ^^
+NameError: name 'pd' is not defined
+10:30:15.899 | [38;5;160mERROR[0m   | Flow run[35m 'versed-hog'[0m - Finished in state [38;5;160mFailed[0m("Flow run encountered an exception: NameError: name 'pd' is not defined")
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py", line 52, in <module>
+    preprocess_flow("data/raw/train_dataset_full.csv", "data/processed")
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flows.py", line 1392, in __call__
+    return run_flow(
+           ^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1511, in run_flow
+    ret_val = run_flow_sync(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1356, in run_flow_sync
+    return engine.state if return_type == "state" else engine.result()
+                                                       ^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 331, in result
+    raise self._raised
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 746, in run_context
+    yield self
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1354, in run_flow_sync
+    engine.call_flow_fn()
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 766, in call_flow_fn
+    result = call_with_parameters(self.flow.fn, self.parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\callables.py", line 208, in call_with_parameters
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py", line 45, in preprocess_flow
+    df = preprocessor.load_data(Path(csv_path))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\preprocess_cat.py", line 42, in load_data
+    self.callback({
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py", line 10, in wandb_callback
+    if isinstance(value, pd.DataFrame):
+                         ^^
+NameError: name 'pd' is not defined

@@ -1,0 +1,117 @@
+[32m[I 2025-01-28 11:33:59,320][0m A new study created in memory with name: no-name-089d9ee5-64bc-4847-a8de-ad1232192dec[0m
+[32m[I 2025-01-28 11:36:17,136][0m Trial 0 finished with value: 0.14483972062480455 and parameters: {'depth': 8, 'learning_rate': 0.054931026792594956, 'l2_leaf_reg': 23.562617485489422, 'grow_policy': 'Depthwise', 'bootstrap_type': 'Bernoulli', 'subsample': 0.5492617899535728}. Best is trial 0 with value: 0.14483972062480455.[0m
+[32m[I 2025-01-28 11:38:42,187][0m Trial 1 finished with value: 0.14535979315434747 and parameters: {'depth': 9, 'learning_rate': 0.0525418619827889, 'l2_leaf_reg': 27.40532158642253, 'grow_policy': 'Depthwise', 'bootstrap_type': 'Bayesian', 'bagging_temperature': 0.2649994140264499}. Best is trial 1 with value: 0.14535979315434747.[0m
+[33m[W 2025-01-28 11:39:21,816][0m Trial 2 failed with parameters: {'depth': 8, 'learning_rate': 0.07517124530192125, 'l2_leaf_reg': 13.579501659818169, 'grow_policy': 'Depthwise', 'bootstrap_type': 'Bernoulli', 'subsample': 0.6621181146159312} because of the following error: KeyboardInterrupt('').[0m
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\optuna\study\_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\train.py", line 80, in objective
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 5245, in fit
+    self._fit(X, y, cat_features, text_features, embedding_features, None, graph, sample_weight, None, None, None, None, baseline, use_best_model,
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 2410, in _fit
+    self._train(
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\catboost\core.py", line 1790, in _train
+    self._object._train(train_pool, test_pool, params, allow_clear_pool, init_model._object if init_model else None)
+  File "_catboost.pyx", line 5017, in _catboost._CatBoost._train
+  File "_catboost.pyx", line 5066, in _catboost._CatBoost._train
+KeyboardInterrupt
+[33m[W 2025-01-28 11:39:21,926][0m Trial 2 failed with value None.[0m
+11:39:21.935 | [38;5;160mERROR[0m   | Flow run[35m 'agate-goose'[0m - Crash detected! Execution was aborted by an interrupt signal.
+--- Error logging to API ---
+All connection attempts failed11:39:31.556 | [38;5;160mERROR[0m   | Flow run[35m 'agate-goose'[0m - Finished in state Running()
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_sync\connection.py", line 101, in handle_request
+    raise exc
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_sync\connection.py", line 78, in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_sync\connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_backends\sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+  File "C:\Users\maorb\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 155, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\tasks_wandb.py", line 90, in <module>
+    tune_and_train_pipeline()
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flows.py", line 1392, in __call__
+    return run_flow(
+           ^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1511, in run_flow
+    ret_val = run_flow_sync(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1351, in run_flow_sync
+    with engine.start():
+  File "C:\Users\maorb\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 155, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 723, in start
+    with self.initialize_run():
+  File "C:\Users\maorb\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 155, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 698, in initialize_run
+    self.handle_crash(exc)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 420, in handle_crash
+    self.set_state(state, force=True)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 306, in set_state
+    state = propose_state_sync(
+            ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\engine.py", line 476, in propose_state_sync
+    response = set_state_and_handle_waits(set_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\engine.py", line 458, in set_state_and_handle_waits
+    response = set_state_func()
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\client\orchestration\_flow_runs\client.py", line 332, in set_flow_run_state
+    response = self.request(
+               ^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\client\orchestration\base.py", line 29, in request
+    return self._client.request(method, path, params=params, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\client\base.py", line 543, in send
+    response = self._send_with_retry(
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\client\base.py", line 467, in _send_with_retry
+    response = send(request, *send_args, **send_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+  File "C:\Users\maorb\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 155, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+--- Error logging to API ---
+All connection attempts failed

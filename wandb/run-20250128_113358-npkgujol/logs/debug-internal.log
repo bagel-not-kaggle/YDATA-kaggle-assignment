@@ -1,0 +1,15 @@
+{"time":"2025-01-28T11:33:58.5040907+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\wandb\\run-20250128_113358-npkgujol\\logs\\debug-core.log"}
+{"time":"2025-01-28T11:33:58.6302255+02:00","level":"INFO","msg":"created new stream","id":"npkgujol"}
+{"time":"2025-01-28T11:33:58.6302255+02:00","level":"INFO","msg":"stream: started","id":"npkgujol"}
+{"time":"2025-01-28T11:33:58.6302255+02:00","level":"INFO","msg":"sender: started","stream_id":"npkgujol"}
+{"time":"2025-01-28T11:33:58.6328851+02:00","level":"INFO","msg":"handler: started","stream_id":"npkgujol"}
+{"time":"2025-01-28T11:33:58.6328851+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"npkgujol"}
+{"time":"2025-01-28T11:33:58.9794847+02:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-28T11:39:41.6587221+02:00","level":"INFO","msg":"stream: closing","id":"npkgujol"}
+{"time":"2025-01-28T11:39:41.6587221+02:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-28T11:39:41.6599229+02:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-28T11:39:42.4051704+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-28T11:39:42.7118875+02:00","level":"INFO","msg":"handler: closed","stream_id":"npkgujol"}
+{"time":"2025-01-28T11:39:42.7118875+02:00","level":"INFO","msg":"sender: closed","stream_id":"npkgujol"}
+{"time":"2025-01-28T11:39:42.7118875+02:00","level":"INFO","msg":"writer: Close: closed","stream_id":"npkgujol"}
+{"time":"2025-01-28T11:39:42.7129572+02:00","level":"INFO","msg":"stream: closed","id":"npkgujol"}

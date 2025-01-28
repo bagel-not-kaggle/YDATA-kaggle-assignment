@@ -11,17 +11,25 @@ class DataPreprocessor:
         output_path: Path = Path("data/processed"),
         remove_outliers: bool = False,
         fillna: bool = False,
-        use_dummies: bool = True,
+        use_dummies: bool = False,
         save_as_pickle: bool = True,
+        catb: bool = True,
+        use_missing_with_mode: bool = False,
+        use_mode: bool = False,
+
         callback=None
     ):
         self.output_path = output_path
         self.remove_outliers = remove_outliers
+        self.catb = catb
         self.fillna = fillna
         self.use_dummies = use_dummies
+        self.use_missing_with_mode = use_missing_with_mode
         self.save_as_pickle = save_as_pickle
         self.callback = callback or (lambda x: None)  # Default no-op callback if none provided
         self.output_path.mkdir(parents=True, exist_ok=True)
+        self.use_mode = use_mode
+        
 
         # Set up logging
         logging.basicConfig(level=logging.INFO)
@@ -31,11 +39,7 @@ class DataPreprocessor:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
         df = pd.read_csv(csv_path)
-        self.callback({
-        "initial_rows": len(df),
-        "initial_columns": len(df.columns),
-        "initial_missing_values": df.isna().sum().sum()
-        })
+        
         self.logger.info(f"Loading file from: {csv_path}")
         return df
 
@@ -50,18 +54,16 @@ class DataPreprocessor:
             num_outliers = outlier_condition.sum()
             df = df[~outlier_condition]
             self.logger.info(f"Removed {num_outliers} outliers based on age_level")
-            self.callback({
-        "rows_after_outlier_removal": len(df),
-        "outliers_removed": outlier_condition.sum()
-    })
+            
         return df
 
-    def fill_missing_values(self, df: pd.DataFrame, use_mode: bool = False) -> pd.DataFrame:
+    def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fill missing values using mode, median, or forward/backward fill.
         Includes subfunctions for modularity.
         """
         df = df.copy()
+        self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
         df["user_id"] = df["user_id"].fillna(-1).astype("int32")
         # Subfunction for filling with mode
         def _fill_with_mode(df, columns):
@@ -81,7 +83,7 @@ class DataPreprocessor:
             return df
 
         # Subfunction for forward/backward filling (requires sorting)
-        def _fill_with_ffill_bfill_user(df, columns):
+        def fill_with_ffill_bfill_user(df, columns):
             if "DateTime" in df.columns:
                 df = df.sort_values("DateTime")
             df[columns] = (
@@ -101,18 +103,22 @@ class DataPreprocessor:
         columns_to_fill_mode = ["product", "campaign_id", "webpage_id", "gender", "var_1", "product_category"]
 
         # Apply mode-based filling if enabled
-        if use_mode:
+        if self.use_mode:
             df = _fill_with_mode(df, columns_to_fill_mode)
 
         # Apply median-based filling
         #self.logger.info("Filled missing values with median.")
 
         # Apply forward/backward filling
-        cols_for_ffill_bfill1 = ["product", "campaign_id", "webpage_id", "gender",  "product_category"]
-        cols_for_ffill_bfill2 = ["age_level", "city_development_index","var_1", "user_depth"]
-        self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill2}")
-        df = _fill_with_ffill_bfill_user(df, cols_for_ffill_bfill2)
-        self.logger.info("Filled missing values with forward/backward fill.")
+        #cols_for_ffill_bfill2 = ["product", "campaign_id", "webpage_id", "gender",  "product_category"]
+        cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
+        self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill}")
+        self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
+        df = fill_with_ffill_bfill_user(df, cols_for_ffill_bfill)
+        self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+        if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
+            self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
+            df[cols_for_ffill_bfill] = df[cols_for_ffill_bfill].fillna(df[cols_for_ffill_bfill].mode().iloc[0])
         missing_is_click = df["is_click"].isna().sum()
         if missing_is_click > 0:
             self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
@@ -149,7 +155,7 @@ class DataPreprocessor:
 
         return cat_features
 
-    def feature_generation2(self, df: pd.DataFrame, use_missing_with_mode=False, get_dumm=False, catb=True):
+    def feature_generation2(self, df: pd.DataFrame):
         df = df.copy()
 
         # Generate time-based features
@@ -170,7 +176,7 @@ class DataPreprocessor:
             df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
         self.logger.info("Filled missing values with forward/backward fill.")
         # Fill missing values
-        if use_missing_with_mode:
+        if self.use_missing_with_mode:
             df = self.fill_missing_values(df, use_mode=True)
 
         # Generate campaign-based features
@@ -187,7 +193,7 @@ class DataPreprocessor:
         # Drop unnecessary columns
         df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id', 'user_group_id'], inplace=True)
       
-        if catb:
+        if self.catb:
             self.determine_categorical_features(df)
         # One-hot encoding if `get_dumm` is True
         df['campaign_duration_hours'] = df.groupby('webpage_id', observed=True)['campaign_duration_hours'].transform(
@@ -195,16 +201,10 @@ class DataPreprocessor:
         
 
         self.logger.info(f'missing values in campaign_duration_hours after: {df["campaign_duration_hours"].isna().sum()}')
-        
-        if get_dumm:
+
+        if self.use_dummies:
             columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
             df = pd.get_dummies(df, columns=columns_to_d)
-
-        self.callback({
-        "total_features": len(df.columns),
-        "categorical_features": len(df.select_dtypes(include=['object', 'category']).columns),
-        "numerical_features": len(df.select_dtypes(include=['int64', 'float64']).columns)
-            })
 
         return df
 
@@ -239,11 +239,17 @@ class DataPreprocessor:
             y_val_fold = y_train.iloc[val_idx]
             fold_datasets.append((X_train_fold, y_train_fold, X_val_fold, y_val_fold))
             self.callback({
-            f"fold_{fold}_train_size": len(train_idx),
-            f"fold_{fold}_val_size": len(val_idx),
-            f"fold_{fold}_positive_ratio": y_train.iloc[train_idx].mean()
+            f"fold_{fold}_train_dataset": X_train_fold,
+            f"fold_{fold}_val_dataset": X_val_fold,
+            f"fold_{fold}_train_target": y_train_fold,
+            f"fold_{fold}_val_target": y_val_fold
             })
-
+        self.callback({
+            "X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test
+        })
         self.logger.info("Created stratified folds for training data.")
 
         return df_clean, X_train, X_test, y_train, y_test, fold_datasets
@@ -287,6 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--remove-outliers", action="store_true", help="Flag to remove outliers")
     parser.add_argument("--fillna", action="store_true", help="Flag to fill missing values")
     parser.add_argument("--use-dummies", action="store_true", help="Flag to apply pd.get_dummies")
+    parser.add_argument("--use-missing-with-mode", action="store_true", help="Flag to fill missing values with mode")
     parser.add_argument("--save-as-pickle", action="store_true", default=True, help="Flag to save as Pickle instead of CSV")
     args = parser.parse_args()
 

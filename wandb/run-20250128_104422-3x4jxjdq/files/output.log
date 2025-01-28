@@ -1,0 +1,13 @@
+10:45:14.690 | [38;5;184mWARNING[0m | preprocess_cat - Still missing values in columns: ['age_level', 'city_development_index', 'var_1', 'user_depth']
+10:45:14.772 | [38;5;184mWARNING[0m | preprocess_cat - 3019 rows still have missing 'is_click'. Dropping these rows.
+10:46:04.342 | [38;5;184mWARNING[0m | preprocess_cat - Still missing values in columns: 528
+C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py:19: FutureWarning: The behavior of Series.replace (and DataFrame.replace) with CategoricalDtype is deprecated. In a future version, replace will only be used for cases that preserve the categories. To change the categories, use ser.cat.rename_categories instead.
+  df[col] = df[col].replace('missing', np.nan)
+C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py:23: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  if pd.api.types.is_categorical_dtype(series):
+10:47:06.539 | [38;5;184mWARNING[0m | root - Truncating wandb.Table object to 200000 rows.
+10:48:28.887 | [38;5;184mWARNING[0m | root - Truncating wandb.Table object to 200000 rows.
+[34m[1mwandb[0m: [33mWARNING[0m Fatal error while uploading data. Some run data will not be synced, but it will still be written to disk. Use `wandb sync` at the end of the run to try uploading.
+10:49:52.264 | [38;5;184mWARNING[0m | root - Truncating wandb.Table object to 200000 rows.
+10:51:14.736 | [38;5;184mWARNING[0m | root - Truncating wandb.Table object to 200000 rows.
+10:52:33.130 | [38;5;184mWARNING[0m | root - Truncating wandb.Table object to 200000 rows.
