@@ -1,0 +1,90 @@
+13:19:30.880 | [38;5;184mWARNING[0m | preprocess_cat - Still missing values in columns: ['age_level', 'city_development_index', 'var_1', 'user_depth']
+13:19:30.978 | [38;5;184mWARNING[0m | preprocess_cat - 3019 rows still have missing 'is_click'. Dropping these rows.
+13:19:43.318 | [38;5;160mERROR[0m   | Task run 'preprocess_data-efb' - Crash detected! Execution was aborted by an interrupt signal.
+13:19:43.336 | [38;5;160mERROR[0m   | Task run 'preprocess_data-efb' - Finished in state [91mCrashed[0m('Execution was aborted by an interrupt signal.')
+13:19:43.339 | [38;5;160mERROR[0m   | Flow run[35m 'beautiful-jaguar'[0m - Crash detected! Execution was aborted by an interrupt signal.
+13:19:43.562 | [38;5;160mERROR[0m   | Flow run[35m 'beautiful-jaguar'[0m - Finished in state [91mCrashed[0m('Execution was aborted by an interrupt signal.')
+Traceback (most recent call last):
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test2.py", line 186, in <module>
+    preprocess_and_train_flow(
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flows.py", line 1392, in __call__
+    return run_flow(
+           ^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1511, in run_flow
+    ret_val = run_flow_sync(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 1354, in run_flow_sync
+    engine.call_flow_fn()
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\flow_engine.py", line 766, in call_flow_fn
+    result = call_with_parameters(self.flow.fn, self.parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\callables.py", line 208, in call_with_parameters
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test2.py", line 150, in preprocess_and_train_flow
+    preprocess_data(csv_path, output_path)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\tasks.py", line 1035, in __call__
+    return run_task(
+           ^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\task_engine.py", line 1576, in run_task
+    return run_task_sync(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\task_engine.py", line 1387, in run_task_sync
+    engine.call_task_fn(txn)
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\task_engine.py", line 828, in call_task_fn
+    result = call_with_parameters(self.task.fn, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\prefect\utilities\callables.py", line 208, in call_with_parameters
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test2.py", line 72, in preprocess_data
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
+                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\preprocess_cat.py", line 224, in preprocess
+    df_clean = self.feature_generation2(df_clean)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\preprocess_cat.py", line 170, in feature_generation2
+    .transform(lambda x: x.ffill().bfill())
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\groupby\generic.py", line 1815, in transform
+    return self._transform(
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\groupby\groupby.py", line 2021, in _transform
+    return self._transform_general(func, engine, engine_kwargs, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\groupby\generic.py", line 1747, in _transform_general
+    res = path(group)
+          ^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\groupby\generic.py", line 1826, in <lambda>
+    fast_path = lambda group: func(group, *args, **kwargs)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\preprocess_cat.py", line 170, in <lambda>
+    .transform(lambda x: x.ffill().bfill())
+                         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\generic.py", line 7800, in bfill
+    return self._pad_or_backfill(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\generic.py", line 7089, in _pad_or_backfill
+    new_mgr = self._mgr.pad_or_backfill(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\internals\base.py", line 300, in pad_or_backfill
+    return self.apply_with_block(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\internals\managers.py", line 363, in apply
+    applied = getattr(b, f)(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\internals\blocks.py", line 1751, in pad_or_backfill
+    new_values = new_values.T
+                 ^^^^^^^^^^^^
+  File "arrays.pyx", line 179, in pandas._libs.arrays.NDArrayBacked.T.__get__
+  File "arrays.pyx", line 66, in pandas._libs.arrays.NDArrayBacked._from_backing_data
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\arrays\numpy_.py", line 141, in _from_backing_data
+    return type(self)(arr)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\arrays\numpy_.py", line 112, in __init__
+    dtype = NumpyEADtype(values.dtype)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\venv\Lib\site-packages\pandas\core\dtypes\dtypes.py", line 1454, in __init__
+    def __init__(self, dtype: npt.DTypeLike | NumpyEADtype | None) -> None:
+
+KeyboardInterrupt

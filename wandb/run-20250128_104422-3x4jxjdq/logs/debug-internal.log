@@ -1,0 +1,19 @@
+{"time":"2025-01-28T10:44:22.4743185+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"C:\\Users\\maorb\\Classes\\Classical_ML\\YDATA-kaggle-assignment\\wandb\\run-20250128_104422-3x4jxjdq\\logs\\debug-core.log"}
+{"time":"2025-01-28T10:44:22.6026966+02:00","level":"INFO","msg":"created new stream","id":"3x4jxjdq"}
+{"time":"2025-01-28T10:44:22.6026966+02:00","level":"INFO","msg":"stream: started","id":"3x4jxjdq"}
+{"time":"2025-01-28T10:44:22.6026966+02:00","level":"INFO","msg":"sender: started","stream_id":"3x4jxjdq"}
+{"time":"2025-01-28T10:44:22.6026966+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"3x4jxjdq"}
+{"time":"2025-01-28T10:44:22.6026966+02:00","level":"INFO","msg":"handler: started","stream_id":"3x4jxjdq"}
+{"time":"2025-01-28T10:44:23.0715436+02:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-28T10:49:10.7876285+02:00","level":"ERROR","msg":"HTTP error","status":400,"method":"POST","url":"https://api.wandb.ai/files/maorblumberg-tel-aviv-university/ctr-prediction/3x4jxjdq/file_stream"}
+{"time":"2025-01-28T10:49:10.7881858+02:00","level":"ERROR+4","msg":"filestream: fatal error: filestream: failed to upload: 400 Bad Request path=files/maorblumberg-tel-aviv-university/ctr-prediction/3x4jxjdq/file_stream: {\"error\":\"Error 1301 (HY000): Result of json_binary::serialize() was larger than max_allowed_packet (33554432) - truncated\"}"}
+{"time":"2025-01-28T10:52:52.2364433+02:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-28T10:52:52.2374676+02:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-28T10:52:52.4003043+02:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading artifact run-3x4jxjdq-fold_4_train_dataset","runtime_seconds":6.9090196,"subtasks":[{"desc":"fold_4_train_dataset.table.json","runtime_seconds":3.1014261,"progress":"13.2MB/17.1MB"}]},{"desc":"uploading artifact run-3x4jxjdq-fold_4_val_dataset","runtime_seconds":1.9625555000000001},{"desc":"uploading media\\table\\fold_4_val_dataset_6_ec01916df86f2ddf04e7.table.json","runtime_seconds":1.2441047,"progress":"874.7KB/874.7KB"}],"total_operations":3}}
+{"time":"2025-01-28T10:52:54.618981+02:00","level":"WARN","msg":"filestream: run summary line too long, skipping","len":12559334,"max":10383360}
+{"time":"2025-01-28T10:53:11.705073+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-28T10:53:15.9679026+02:00","level":"INFO","msg":"stream: closing","id":"3x4jxjdq"}
+{"time":"2025-01-28T10:53:15.9679026+02:00","level":"INFO","msg":"handler: closed","stream_id":"3x4jxjdq"}
+{"time":"2025-01-28T10:53:15.9679026+02:00","level":"INFO","msg":"sender: closed","stream_id":"3x4jxjdq"}
+{"time":"2025-01-28T10:53:15.9679026+02:00","level":"INFO","msg":"writer: Close: closed","stream_id":"3x4jxjdq"}
+{"time":"2025-01-28T10:53:15.9679026+02:00","level":"INFO","msg":"stream: closed","id":"3x4jxjdq"}

@@ -12,11 +12,12 @@ import json
 
 
 class ModelTrainer:
-    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None):
+    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None, params=False):
         self.folds_dir = Path(folds_dir)
         self.test_file = Path(test_file)
         self.model_name = model_name
         self.callback = callback
+        self.params = params
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -34,29 +35,36 @@ class ModelTrainer:
 
     def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series, cat_features: list, n_trials: int = 50, run_id: str = "1"):
 
-
+        trials_data = []
 
         def objective(trial):
             # Define hyperparameters to optimize
             params = {
                 "iterations": 1000,
-                "depth": trial.suggest_int("depth", 6, 10),
-                "learning_rate": trial.suggest_float("learning_rate", 0.05, 0.13),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 38),
+                "depth": trial.suggest_int("depth", 3, 5),
+                "learning_rate": trial.suggest_float("learning_rate", 0.08, 0.15),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 15, 40),
+                "random_strength": trial.suggest_float("random_strength", 0.1, 1.5),
+                #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
                 "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
-                "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
-                "class_weights": [1, 1 / 0.06767396213210575],  # Fixed class weights
+                "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "MVS"]),
+                #"class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
                 "eval_metric": "F1",
+                "class_weights": [1, 1 / 0.06767396213210575],
+                "early_stopping_rounds": 100,
                 "random_seed": 42,
                 "verbose": 0,
-                "early_stopping_rounds": 100,
             }
 
-            # Add bagging_temperature or subsample based on bootstrap_type
             if params["bootstrap_type"] == "Bayesian":
-                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.6)
+                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.8)
+            if params['grow_policy'] == 'Depthwise':
+                params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 1, 10)
             elif params["bootstrap_type"] == "Bernoulli":
-                params["subsample"] = trial.suggest_float("subsample", 0.5, 0.8)
+                params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
+            
+            if self.callback:
+                self.callback({"trial_params": params})
 
             # Initialize the model
             model = CatBoostClassifier(**params)
@@ -98,17 +106,30 @@ class ModelTrainer:
                     continue
 
             # Return the average F1 score across folds
-            if scores:
-                return np.mean(scores)
-            else:
-                self.logger.warning("All folds were skipped. Returning 0.0.")
-                return 0.0
+            mean_score = float(np.mean(scores) if scores else 0.0)
+            trial_data = {
+            "trial_number": int(len(trials_data) + 1),
+            "f1_score": mean_score,
+            **params
+                }
+            trials_data.append(trial_data)
+            if self.callback:
+                self.callback({
+                    "trial_metrics": pd.DataFrame([{
+                        "trial_number": trial_data["trial_number"],
+                        "mean_f1_score": mean_score
+                    }])
+                })
+
+            return mean_score
 
 
 
         self.logger.info("Starting hyperparameter tuning...")
         study = optuna.create_study(direction='maximize')
         study.optimize(objective, n_trials=n_trials)
+        if self.callback:
+            self.callback({"best_params": pd.DataFrame([study.best_params])})
 
         self.logger.info(f"Best hyperparameters: {study.best_params}")
 
@@ -127,9 +148,12 @@ class ModelTrainer:
         best_f1 = 0
         best_model = None
         fold_scores = []
-        params = {'depth': 8, 'learning_rate': 0.09236469176564258, 'l2_leaf_reg': 19.401303554340448,
-                   'grow_policy': 'SymmetricTree', 
-                   'bootstrap_type': 'Bayesian', 'bagging_temperature': 0.8297362082411195}
+        if self.params:
+            params = self.params
+        else:
+            params = {'depth': 8, 'learning_rate': 0.09236469176564258, 'l2_leaf_reg': 19.401303554340448,
+            'grow_policy': 'SymmetricTree',
+            'bootstrap_type': 'Bayesian', 'bagging_temperature': 0.8297362082411195}
 
         for fold_index in range(n_folds):
             self.logger.info(f"Processing fold {fold_index + 1}...")
@@ -184,7 +208,7 @@ class ModelTrainer:
         self.logger.info(f"Best F1 score across folds: {best_f1}")
 
         if self.callback:
-            self.callback({"average_f1": avg_f1, "best_f1": best_f1})
+            self.callback({"average_f1": avg_f1, "best_f1": best_f1,"fold_scores": fold_scores})
 
         self.logger.info(f"Loading test data from: {self.test_file}")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
@@ -206,6 +230,7 @@ if __name__ == "__main__":
     parser.add_argument("--run_id", type=str, default="1", help="Run ID for hyperparameter tuning")
     parser.add_argument("--n_trials", type=int, default=50, help="Number of Optuna trials for hyperparameter tuning (default: 50)")
     parser.add_argument("--train", action="store_true", help="Flag to train the model")
+    parser.add_argument("--params", type=str, default=None, help="Hyperparameters for the model")
 
     args = parser.parse_args()
 
