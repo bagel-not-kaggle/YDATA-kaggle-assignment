@@ -1,0 +1,9 @@
+{
+    "depth": 4,
+    "learning_rate": 0.09000018051227325,
+    "l2_leaf_reg": 33.67815971728025,
+    "random_strength": 0.42834861177072037,
+    "grow_policy": "Depthwise",
+    "bootstrap_type": "MVS",
+    "min_data_in_leaf": 6
+}
