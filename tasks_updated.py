@@ -120,9 +120,9 @@ def preprocess_and_train_flow(
     model_name: str = "catboost",
     run_id: str = "1",
     n_trials: int = 50,
-    preprocess: bool = True,
-    tune: bool = True,
-    train: bool = True,
+    preprocess: bool = False,
+    tune: bool = False,
+    train: bool = False,
     params = None
 ):
     """
@@ -165,7 +165,7 @@ def preprocess_and_train_flow(
 
     # Step 4: Train (optional)
     if train:
-        if params:
+        if params is not None:
             with open(f'data/Hyperparams/best_params{run_id}.json', 'r') as f:
                 loaded_params = json.load(f)
         train_results = train_model(
@@ -183,19 +183,53 @@ def preprocess_and_train_flow(
 ##############################################################################
 # 6. Command-line entry point
 ##############################################################################
-if __name__ == "__main__":
-    """"""
+#if __name__ == "__main__":
     # Example default call
+    #preprocess_and_train_flow(
+    #    csv_path="data/raw/train_dataset_full.csv",
+    #    output_path="data/processed",
+    #    folds_dir="data/processed",
+    #    test_file="data/processed",
+    #    model_name="catboost",
+    #    run_id="1",
+    #    n_trials=50,
+    #    params = None,
+    #    preprocess=False,
+    #    tune=False,
+    #    train=True
+    #)
+import argparse
+
+if __name__ == "__main__":
+    # Argument parser for local execution
+    parser = argparse.ArgumentParser(description="Run the preprocess_and_train_flow with optional parameters.")
+    parser.add_argument("--csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the raw CSV file.")
+    parser.add_argument("--output_path", type=str, default="data/processed", help="Path to save the processed data.")
+    parser.add_argument("--folds_dir", type=str, default="data/processed", help="Directory for folds.")
+    parser.add_argument("--test_file", type=str, default="data/processed", help="Path to the test file.")
+    parser.add_argument("--model_name", type=str, default="catboost", help="Name of the model.")
+    parser.add_argument("--run_id", type=str, default="1", help="Run ID.")
+    parser.add_argument("--n_trials", type=int, default=50, help="Number of hyperparameter tuning trials.")
+    parser.add_argument("--preprocess", action='store_true', help="Run preprocessing step.")
+    parser.add_argument("--tune", action='store_true', help="Run hyperparameter tuning step.")
+    parser.add_argument("--train", action='store_true', help="Run training step.")
+    parser.add_argument("--params", type=str, default=None, help="Path to JSON file with preloaded parameters.")
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Call the Prefect flow with parsed arguments
     preprocess_and_train_flow(
-        csv_path="data/raw/train_dataset_full.csv",
-        output_path="data/processed",
-        folds_dir="data/processed",
-        test_file="data/processed",
-        model_name="catboost",
-        run_id="1",
-        n_trials=50,
-        params = None,
-        preprocess=False,
-        tune=False,
-        train=True
+        csv_path=args.csv_path,
+        output_path=args.output_path,
+        folds_dir=args.folds_dir,
+        test_file=args.test_file,
+        model_name=args.model_name,
+        run_id=args.run_id,
+        n_trials=args.n_trials,
+        preprocess=args.preprocess,
+        tune=args.tune,
+        train=args.train,
+        params=args.params
     )
+
