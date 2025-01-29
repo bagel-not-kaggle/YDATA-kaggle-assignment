@@ -165,7 +165,7 @@ def preprocess_and_train_flow(
 
     # Step 4: Train (optional)
     if train:
-        if params is not None:
+        if best_params is not None:
             with open(f'data/Hyperparams/best_params{run_id}.json', 'r') as f:
                 loaded_params = json.load(f)
         train_results = train_model(
@@ -199,6 +199,10 @@ def preprocess_and_train_flow(
     #    train=True
     #)
 import argparse
+from prefect import flow
+
+
+
 
 if __name__ == "__main__":
     # Argument parser for local execution

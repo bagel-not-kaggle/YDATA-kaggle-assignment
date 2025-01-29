@@ -151,9 +151,9 @@ class ModelTrainer:
         if self.params:
             params = self.params
         else:
-            params = {'depth': 8, 'learning_rate': 0.09236469176564258, 'l2_leaf_reg': 19.401303554340448,
-            'grow_policy': 'SymmetricTree',
-            'bootstrap_type': 'Bayesian', 'bagging_temperature': 0.8297362082411195}
+            params = {'depth': 3, 'learning_rate': 0.12117083431119458, 
+                      'l2_leaf_reg': 27.49102055289926, 'random_strength': 1.2079636934696745,
+                        'grow_policy': 'SymmetricTree', 'bootstrap_type': 'MVS'}
 
         for fold_index in range(n_folds):
             self.logger.info(f"Processing fold {fold_index + 1}...")
