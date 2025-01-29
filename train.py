@@ -40,7 +40,7 @@ class ModelTrainer:
         def objective(trial):
             # Define hyperparameters to optimize
             params = {
-                "iterations": 1000,
+                
                 "depth": trial.suggest_int("depth", 3, 5),
                 "learning_rate": trial.suggest_float("learning_rate", 0.08, 0.15),
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 15, 40),
@@ -49,8 +49,9 @@ class ModelTrainer:
                 "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "MVS"]),
                 #"class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
+                "iterations": 1000,
                 "eval_metric": "F1",
-                "class_weights": [1, 1 / 0.06767396213210575],
+                "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
                 "verbose": 0,
@@ -132,13 +133,23 @@ class ModelTrainer:
             self.callback({"best_params": pd.DataFrame([study.best_params])})
 
         self.logger.info(f"Best hyperparameters: {study.best_params}")
+        # add to study.best_params the constant parameters
+        constant_params = {
+             "iterations": 1000,
+                "eval_metric": "F1",
+                "auto_class_weights": "Balanced",
+                "early_stopping_rounds": 100,
+                "random_seed": 42,
+                "verbose": 0,
+             }
+        best_params = {**study.best_params, **constant_params}
 
         #save best hyperparameters as pickle
         with open(f'data/Hyperparams/best_params{run_id}.json', 'w') as f:
-            json.dump(study.best_params, f, indent=4)  # `indent=4` makes the file human-readable
+            json.dump(best_params, f, indent=4)  # `indent=4` makes the file human-readable
 
 
-        return study.best_params
+        return best_params
 
     def train_and_evaluate(self):
         self.logger.info(f"Loading fold data from: {self.folds_dir}")
@@ -149,7 +160,9 @@ class ModelTrainer:
         best_model = None
         fold_scores = []
         if self.params:
-            params = self.params
+            #read params
+            with open(self.params, 'r') as f:
+                params = json.load(f)
         else:
             params = {'depth': 3, 'learning_rate': 0.12117083431119458, 
                       'l2_leaf_reg': 27.49102055289926, 'random_strength': 1.2079636934696745,
