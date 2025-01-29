@@ -35,6 +35,15 @@ class DataPreprocessor:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
+    
+    
+    """       
+    ╦ ╦┌─┐┬  ┌─┐┌─┐┬─┐  ╔═╗┬ ┬┌┐┌┌─┐┌┬┐┬┌─┐┌┐┌┌─┐
+    ╠═╣├┤ │  ├─┘├┤ ├┬┘  ╠╣ │ │││││   │ ││ ││││└─┐
+    ╩ ╩└─┘┴─┘┴  └─┘┴└─  ╚  └─┘┘└┘└─┘ ┴ ┴└─┘┘└┘└─┘
+
+    """
+
     def load_data(self, csv_path: Path) -> pd.DataFrame:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
@@ -42,7 +51,7 @@ class DataPreprocessor:
         
         self.logger.info(f"Loading file from: {csv_path}")
         return df
-
+    
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
             mean = df["age_level"].mean()
@@ -56,6 +65,32 @@ class DataPreprocessor:
             self.logger.info(f"Removed {num_outliers} outliers based on age_level")
             
         return df
+    
+    def fill_with_ffill_bfill_user(self,df, columns):
+        if "DateTime" in df.columns:
+            df = df.sort_values("DateTime")
+        df[columns] = (
+        df.groupby("user_id",observed = True)[columns]
+        .transform(lambda x: x.ffill().bfill())
+        .infer_objects(copy=False))
+        if "DateTime" in df.columns:
+            df = df.sample(frac=1)  # Shuffle rows back to avoid keeping sort order
+        return df
+    
+    def _fill_with_mode(self,df, columns): # Maybe groupby user_id
+        for column in columns:
+            if column in df.columns:
+                mode_value = df[column].mode()
+                if not mode_value.empty:
+                    df[column] = df[column].fillna(mode_value.iloc[0])
+        return df
+
+    def _fill_with_median(self,df, columns): # Maybe groupby user_id
+        for column in columns:
+            if column in df.columns:
+                median_value = df[column].median()
+                df[column] = df[column].fillna(median_value)
+        return df
 
     def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -64,37 +99,7 @@ class DataPreprocessor:
         """
         df = df.copy()
         self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
-        df["user_id"] = df["user_id"].fillna(-1).astype("int32")
-        # Subfunction for filling with mode
-        def _fill_with_mode(df, columns):
-            for column in columns:
-                if column in df.columns:
-                    mode_value = df[column].mode()
-                    if not mode_value.empty:
-                        df[column] = df[column].fillna(mode_value.iloc[0])
-            return df
-
-        # Subfunction for filling with median
-        def _fill_with_median(df, columns):
-            for column in columns:
-                if column in df.columns:
-                    median_value = df[column].median()
-                    df[column] = df[column].fillna(median_value)
-            return df
-
-        # Subfunction for forward/backward filling (requires sorting)
-        def fill_with_ffill_bfill_user(df, columns):
-            if "DateTime" in df.columns:
-                df = df.sort_values("DateTime")
-            df[columns] = (
-            df.groupby("user_id",observed = True)[columns]
-            .transform(lambda x: x.ffill().bfill())
-            .infer_objects(copy=False))
-            if "DateTime" in df.columns:
-                df = df.sample(frac=1)  # Shuffle rows back to avoid keeping sort order
-            return df
-        
-        
+        df["user_id"] = df["user_id"].fillna(-1).astype("int32")        
         df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
         df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
 
@@ -103,17 +108,12 @@ class DataPreprocessor:
 
         # Apply mode-based filling if enabled
         if self.fill_cat:
-            df = fill_with_ffill_bfill_user(df, cat_cols_to_fill)
+            df = self.fill_with_ffill_bfill_user(df, cat_cols_to_fill)
 
-        # Apply median-based filling
-        #self.logger.info("Filled missing values with median.")
-
-        # Apply forward/backward filling
-        #cols_for_ffill_bfill2 = ["product", "campaign_id", "webpage_id", "gender",  "product_category"]
         cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
         self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill}")
         self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
-        df = fill_with_ffill_bfill_user(df, cols_for_ffill_bfill)
+        df = self.fill_with_ffill_bfill_user(df, cols_for_ffill_bfill)
         self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
         if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
             self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
@@ -126,7 +126,7 @@ class DataPreprocessor:
         
         return df
 
-    def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None):
+    def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None): # For catboost
         """
         Identify and process categorical features, ensuring compatibility with CatBoost.
         """
@@ -153,8 +153,14 @@ class DataPreprocessor:
                 df[col] = df[col].fillna("missing")
 
         return cat_features
+    
+    """
+    ╔═╗┌─┐┌─┐┌┬┐┬ ┬┬─┐┌─┐  ╔═╗┌─┐┌┐┌┌─┐┬─┐┌─┐┌┬┐┬┌─┐┌┐┌
+    ╠╣ ├┤ ├─┤ │ │ │├┬┘├┤   ║ ╦├┤ │││├┤ ├┬┘├─┤ │ ││ ││││
+    ╚  └─┘┴ ┴ ┴ └─┘┴└─└─┘  ╚═╝└─┘┘└┘└─┘┴└─┴ ┴ ┴ ┴└─┘┘└┘
 
-    def feature_generation2(self, df: pd.DataFrame):
+    """
+    def feature_generation(self, df: pd.DataFrame):
         df = df.copy()
 
         # Generate time-based features
@@ -165,10 +171,11 @@ class DataPreprocessor:
 
         cols_to_fill = ["Day", "Hour", "Minute", "weekday"]   
         self.logger.info(f"Filling missing values for columns: {cols_to_fill}")
-        df[cols_to_fill] = (df.groupby("user_id",observed = True)[cols_to_fill]
-            .transform(lambda x: x.ffill().bfill())
-            .infer_objects(copy=False)
-        )
+        df = self.fill_with_ffill_bfill_user(df, cols_to_fill)
+        #(df.groupby("user_id",observed = True)[cols_to_fill]
+        #    .transform(lambda x: x.ffill().bfill())
+        #    .infer_objects(copy=False)
+        #)
         colls_to_fill_nas = df[cols_to_fill].isna().sum()
         if colls_to_fill_nas.sum() > 0:
             self.logger.warning(f"Still missing values in columns: {colls_to_fill_nas.sum()}")
@@ -206,7 +213,14 @@ class DataPreprocessor:
             df = pd.get_dummies(df, columns=columns_to_d)
 
         return df
+    
+    """
+    ╔═╗┬─┐┌─┐┌─┐┬─┐┌─┐┌─┐┌─┐┌─┐┌─┐
+    ╠═╝├┬┘├┤ ├─┘├┬┘│ ││  ├┤ └─┐└─┐
+    ╩  ┴└─└─┘┴  ┴└─└─┘└─┘└─┘└─┘└─┘
 
+    """
+    
     def preprocess(self, df: pd.DataFrame) -> tuple:
         df_clean = df.drop_duplicates().copy()
         self.logger.info(f"Initial shape: {df.shape}. After removing duplicates: {df_clean.shape}")
@@ -220,7 +234,7 @@ class DataPreprocessor:
         if self.fillna:
             df_clean = self.fill_missing_values(df_clean)
 
-        df_clean = self.feature_generation2(df_clean)
+        df_clean = self.feature_generation(df_clean)
 
         X = df_clean.drop(columns=["is_click"])
         y = df_clean["is_click"]
@@ -252,6 +266,15 @@ class DataPreprocessor:
         self.logger.info("Created stratified folds for training data.")
 
         return df_clean, X_train, X_test, y_train, y_test, fold_datasets
+    
+    """
+     ____                  
+    / ___|  __ ___   _____ 
+    \___ \ / _` \ \ / / _ \
+     ___) | (_| |\ V /  __/
+    |____/ \__,_| \_/ \___|
+                        
+    """
 
     def save_data(self, df_clean, X_train, X_test, y_train, y_test, fold_datasets):
         if self.save_as_pickle:
