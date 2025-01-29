@@ -71,7 +71,7 @@ class ModelTrainer:
             model = CatBoostClassifier(**params)
 
             # Cross-validation
-            skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=44)
             scores = []
 
             for fold_index, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
