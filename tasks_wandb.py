@@ -104,7 +104,8 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
         folds_dir=folds_dir,
         test_file=test_file,
         model_name=model_name,
-        callback=callback
+        callback=callback,
+        params = trainer_params
     )
     return trainer.train_and_evaluate()
 
@@ -154,7 +155,6 @@ def preprocess_and_train_flow(
         test_file=test_file,
         model_name=model_name,
         callback=wandb_callback,
-        params = params
     )
     
     # Step 3: Tune (optional)
@@ -162,15 +162,25 @@ def preprocess_and_train_flow(
     if tune:
         best_params = tune_hyperparameters(
             base_trainer, folds_dir, n_trials, run_id
-        )
+        ).result()
+        if best_params:
+            wandb.config.update(best_params)
 
     # Step 4: Train (optional)
-    if train:
-        if best_params is not None:
-            with open(f'data/Hyperparams/best_params{run_id}.json', 'r') as f:
+
+    loaded_params = None
+
+    # Load hyperparameters if a params file is provided via CLI
+    if params is not None:
+        try:
+            with open(params, 'r') as f:
                 loaded_params = json.load(f)
+            print(f"Loaded hyperparameters from {params}: {loaded_params}")
+        except Exception as e:
+            print(f"Error loading hyperparameters from {params}: {e}")
+    if train:
         train_results = train_model(
-            trainer_params=loaded_params if tune else None,
+            trainer_params=loaded_params if loaded_params else best_params,
             folds_dir=folds_dir,
             test_file=test_file,
             model_name=model_name,
