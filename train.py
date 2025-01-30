@@ -63,7 +63,7 @@ class ModelTrainer:
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 15, 40),
                 "random_strength": trial.suggest_float("random_strength", 0.1, 0.8),
                 #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
-                #"grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
+                "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 #"class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
                 "iterations": 1000,
