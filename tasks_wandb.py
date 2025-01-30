@@ -153,7 +153,8 @@ def preprocess_and_train_flow(
         folds_dir=folds_dir,
         test_file=test_file,
         model_name=model_name,
-        callback=wandb_callback
+        callback=wandb_callback,
+        params = params
     )
     
     # Step 3: Tune (optional)
