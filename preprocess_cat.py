@@ -43,14 +43,107 @@ class DataPreprocessor:
     ╩ ╩└─┘┴─┘┴  └─┘┴└─  ╚  └─┘┘└┘└─┘ ┴ ┴└─┘┘└┘└─┘
 
     """
+    def load_all_data(self, train_csv_path: Path, test_csv_path: Path= None) -> pd.DataFrame:
+        if not train_csv_path.exists():
+            raise FileNotFoundError(f"File not found: {train_csv_path}")
+        df_train = pd.read_csv(train_csv_path)
+        df_test = pd.read_csv(test_csv_path)
+               
+        self.logger.info(f"Loading train from: {train_csv_path} and test from {test_csv_path}")
+        return df_train, df_test
+
 
     def load_data(self, csv_path: Path) -> pd.DataFrame:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
         df = pd.read_csv(csv_path)
-        
+ 
         self.logger.info(f"Loading file from: {csv_path}")
         return df
+    
+    def drop_completely_empty(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''drop completely empty rows'''
+        df.dropna(how='all', inplace=True)
+        return df
+    
+    def drop_na_session_id_or_is_click(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''drop rows missing session_id or is_click'''
+        df.dropna(subset=["session_id","is_click"], inplace=True)
+        return df
+    
+    def drop_dup_session_id(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''drop rows with identical session_ids'''
+        df.drop_duplicates(subset=["session_id"], inplace=True)
+        return df
+
+    def decrease_test_user_group_id(self, df_test: pd.DataFrame) -> pd.DataFrame:
+        '''decrease user_group_id by 1 to align with training data'''
+        df_test["user_group_id"] = df_test["user_group_id"] - 1
+        return df_test
+
+    def replace_test_user_depth_to_training(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
+        '''replace (or fill) user_depth values in X_test according to the first
+         valid user_depth observed per user in X_train.'''
+        depth_mapping = (
+        df_train
+        .dropna(subset=["user_depth"])           
+        .groupby("user_id")["user_depth"]        
+        .first()                                 
+        .to_dict()                               
+        )
+
+        df_test["user_depth"] = (
+        df_test["user_id"].map(depth_mapping)
+        .fillna(df_test["user_depth"])
+        )
+        return df_test
+
+    def concat_train_test(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
+        '''concat df_train with df_test, with is_click = -1 as an indicator'''
+        df_test["is_click"] = np.full(df_test.shape[0], -1)
+        df = pd.concat([df_train, df_test], ignore_index=True)
+        return df
+    
+    # Function to infer missing values based on user_id
+    def infer_by_user(self, df: pd.DataFrame, target_col, key_col='user_id', mapping_df=None)-> pd.DataFrame:
+        """
+        Infers missing values in `target_col` based on a mapping from `key_col`.
+        
+        Parameters:
+            df (pd.DataFrame): The DataFrame containing the data.
+            target_col (str): The column to fill missing values in.
+            key_col (str): The column used as the key for mapping (default is 'user_id').
+        
+        Returns:
+            pd.DataFrame: The DataFrame with missing values in `target_col` filled.
+        """
+        # Use the entire DataFrame or the provided mapping DataFrame
+        if mapping_df is not None:
+            source_df = mapping_df
+        else:
+            source_df = df
+
+        # Create a dictionary mapping key_col to target_col, ignoring NaNs
+        mapping_dict = (
+            source_df.dropna(subset=[target_col])
+            .groupby(key_col)[target_col]
+            .first()  # Assumes there's only one unique value per key_col
+            .to_dict()
+        )
+        
+        # Map the key_col to target_col
+        mapped_values = df[key_col].map(mapping_dict)
+        
+        # Fill missing values in target_col
+        df[target_col] = df[target_col].fillna(mapped_values)
+        
+        return df
+
+    def deterministic_fill(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
+        # adding -1 to "is_click" as a test indicator
+        df_test["is_click"] = np.full(df_test.shape[0], -1)
+
+        stacked_df = pd.concat([df_train, df_test], ignore_index=True)
     
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
@@ -85,7 +178,7 @@ class DataPreprocessor:
                     df[column] = df[column].fillna(mode_value.iloc[0])
         return df
 
-    def _fill_with_median(self,df, columns): # Maybe groupby user_id
+    def _fill_with_median(self, df, columns): # Maybe groupby user_id
         for column in columns:
             if column in df.columns:
                 median_value = df[column].median()
@@ -123,7 +216,6 @@ class DataPreprocessor:
             self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
             df = df.dropna(subset=["is_click"])
 
-        
         return df
 
     def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None): # For catboost
@@ -221,9 +313,24 @@ class DataPreprocessor:
 
     """
     
-    def preprocess(self, df: pd.DataFrame) -> tuple:
-        df_clean = df.drop_duplicates().copy()
-        self.logger.info(f"Initial shape: {df.shape}. After removing duplicates: {df_clean.shape}")
+    def preprocess(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> tuple:
+
+        df_train = self.drop_completely_empty(df_train)
+
+        df_train = self.drop_na_session_id_or_is_click(df_train)
+
+        df_train = self.drop_dup_session_id(df_train) 
+
+        df_test = self.decrease_test_user_group_id(df_test) 
+
+        df_test = self.replace_test_user_depth_to_training(df_train, df_test)
+
+        df = self.concat_train_test(df_train, df_test)
+
+        user_cols = ['user_group_id', 'gender', 'age_level', 'city_development_index', 'user_depth']
+
+        for col in user_cols:
+            df = self.infer_by_user(df, col, key_col='user_id', mapping_df=None)
 
         if "DateTime" in df_clean.columns:
             df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
@@ -310,7 +417,8 @@ class DataPreprocessor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the input CSV file")
+    parser.add_argument("--train_csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the input train CSV file")
+    parser.add_argument("--test_csv_path", type=str, default="data/raw/X_test_1st.csv", help="Path to the test CSV file")
     parser.add_argument("--output_path", type=str, default="data/processed", help="Path to save the output data")
     parser.add_argument("--remove-outliers", action="store_true", help="Flag to remove outliers")
     parser.add_argument("--fillna", action="store_true", help="Flag to fill missing values")
@@ -328,6 +436,7 @@ if __name__ == "__main__":
         save_as_pickle=args.save_as_pickle
     )
 
-    df = preprocessor.load_data(Path(args.csv_path))
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
+    # df = preprocessor.load_data(Path(args.csv_path))
+    df_train, df_test = preprocessor.load_all_data(Path(args.train_csv_path), Path(args.test_csv_path))
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df_train, df_test)
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets)
