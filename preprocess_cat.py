@@ -35,7 +35,7 @@ class DataPreprocessor:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
-    
+    ########################################################################################################################################################
     
     """       
     ╦ ╦┌─┐┬  ┌─┐┌─┐┬─┐  ╔═╗┬ ┬┌┐┌┌─┐┌┬┐┬┌─┐┌┐┌┌─┐
@@ -66,18 +66,21 @@ class DataPreprocessor:
             
         return df
     
-    def fill_with_ffill_bfill_user(self,df, columns):
+    def ffill_bfill_target(self, df, columns, group_by_col="user_id"):
+        df_temp = df.copy()
         if "DateTime" in df.columns:
-            df = df.sort_values("DateTime")
-        df[columns] = (
-        df.groupby("user_id",observed = True)[columns]
-        .transform(lambda x: x.ffill().bfill())
-        .infer_objects(copy=False))
-        if "DateTime" in df.columns:
-            df = df.sample(frac=1)  # Shuffle rows back to avoid keeping sort order
-        return df
+            df_temp = df_temp.sort_values("DateTime")
+        result = (
+            df_temp.groupby(group_by_col, observed=True)[columns]
+            .transform(lambda x: x.ffill().bfill())
+            .infer_objects(copy=False)
+        )
+        result = result.sample(frac=1)  # Shuffle rows
+
+        return result
+
     
-    def _fill_with_mode(self,df, columns): # Maybe groupby user_id
+    def fill_with_mode(self,df, columns): 
         for column in columns:
             if column in df.columns:
                 mode_value = df[column].mode()
@@ -91,42 +94,8 @@ class DataPreprocessor:
                 median_value = df[column].median()
                 df[column] = df[column].fillna(median_value)
         return df
-
-    def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fill missing values using mode, median, or forward/backward fill.
-        Includes subfunctions for modularity.
-        """
-        df = df.copy()
-        self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
-        df["user_id"] = df["user_id"].fillna(-1).astype("int32")        
-        df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
-        df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-
-        # Define columns to fill
-        cat_cols_to_fill = ["product", "campaign_id", "webpage_id", "gender", "product_category"]
-
-        # Apply mode-based filling if enabled
-        if self.fill_cat:
-            df = self.fill_with_ffill_bfill_user(df, cat_cols_to_fill)
-
-        cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
-        self.logger.info(f"Filling ffil bfil missing values for columns: {cols_for_ffill_bfill}")
-        self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
-        df = self.fill_with_ffill_bfill_user(df, cols_for_ffill_bfill)
-        self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
-        if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
-            self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
-            df[cols_for_ffill_bfill] = df[cols_for_ffill_bfill].fillna(df[cols_for_ffill_bfill].mode().iloc[0])
-        missing_is_click = df["is_click"].isna().sum()
-        if missing_is_click > 0:
-            self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
-            df = df.dropna(subset=["is_click"])
-
-        
-        return df
-
-    def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None): # For catboost
+    
+    def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None): ## For catboost
         """
         Identify and process categorical features, ensuring compatibility with CatBoost.
         """
@@ -154,6 +123,62 @@ class DataPreprocessor:
 
         return cat_features
     
+    ########################################################################################################################################################
+
+    """
+    ╔═╗┬┬  ┬    ╔╦╗┬┌─┐┌─┐┬┌┐┌┌─┐  ╦  ╦┌─┐┬  ┬ ┬┌─┐┌─┐
+    ╠╣ ││  │    ║║║│└─┐└─┐│││││ ┬  ╚╗╔╝├─┤│  │ │├┤ └─┐
+    ╚  ┴┴─┘┴─┘  ╩ ╩┴└─┘└─┘┴┘└┘└─┘   ╚╝ ┴ ┴┴─┘└─┘└─┘└─┘
+
+    """
+
+    def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fill missing values using mode, median, or forward/backward fill.
+        Includes subfunctions for modularity.
+        """
+        df = df.copy()
+        self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
+        df["user_id"] = df["user_id"].fillna(-1).astype("int32")        
+        df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
+        df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+
+
+        # Apply mode-based filling if enabled
+        if self.fill_cat:
+            cat_cols_to_fill = ["product", "campaign_id", "webpage_id", "gender", "product_category", "user_group_id"]
+            df = self.ffill_bfill_target(df, cat_cols_to_fill)
+
+        cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
+        self.logger.info(f"Filling missing values with user_id for columns: {cols_for_ffill_bfill}")
+        self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
+        df[cols_for_ffill_bfill] = self.ffill_bfill_target(df, cols_for_ffill_bfill,"user_id")
+        self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+
+        if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
+            self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
+            self.logger.info(f"Filling missing values with user_group_id for columns: {cols_for_ffill_bfill}")
+            for col in cols_for_ffill_bfill:
+                mask = df[col].isna()  # Identify rows where the value is still missing
+                if mask.sum() > 0:
+                    df.loc[mask, col] = self.ffill_bfill_target(df, [col], "user_group_id").loc[mask, col]
+            self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+
+            if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
+                self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
+                self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
+                df = self.fill_with_mode(df, cols_for_ffill_bfill)
+                self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+        missing_is_click = df["is_click"].isna().sum()
+        if missing_is_click > 0:
+            self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
+            df = df.dropna(subset=["is_click"])
+
+        
+        return df
+
+    ########################################################################################################################################################
+    
     """
     ╔═╗┌─┐┌─┐┌┬┐┬ ┬┬─┐┌─┐  ╔═╗┌─┐┌┐┌┌─┐┬─┐┌─┐┌┬┐┬┌─┐┌┐┌
     ╠╣ ├┤ ├─┤ │ │ │├┬┘├┤   ║ ╦├┤ │││├┤ ├┬┘├─┤ │ ││ ││││
@@ -170,8 +195,8 @@ class DataPreprocessor:
         df['weekday'] = df['DateTime'].dt.weekday
 
         cols_to_fill = ["Day", "Hour", "Minute", "weekday"]   
-        self.logger.info(f"Filling missing values for columns: {cols_to_fill}")
-        df = self.fill_with_ffill_bfill_user(df, cols_to_fill)
+        self.logger.info(f"Filling missing values with user_id for columns: {cols_to_fill}")
+        df[cols_to_fill] = self.ffill_bfill_target(df, cols_to_fill,"user_id")
         #(df.groupby("user_id",observed = True)[cols_to_fill]
         #    .transform(lambda x: x.ffill().bfill())
         #    .infer_objects(copy=False)
@@ -197,7 +222,7 @@ class DataPreprocessor:
         
 
         # Drop unnecessary columns
-        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id', 'user_group_id'], inplace=True)
+        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True)
       
         if self.catb:
             self.determine_categorical_features(df)
@@ -214,6 +239,8 @@ class DataPreprocessor:
 
         return df
     
+    ########################################################################################################################################################
+    
     """
     ╔═╗┬─┐┌─┐┌─┐┬─┐┌─┐┌─┐┌─┐┌─┐┌─┐
     ╠═╝├┬┘├┤ ├─┘├┬┘│ ││  ├┤ └─┐└─┐
@@ -222,7 +249,8 @@ class DataPreprocessor:
     """
     
     def preprocess(self, df: pd.DataFrame) -> tuple:
-        df_clean = df.drop_duplicates().copy()
+        #df_clean = df.drop_duplicates().copy()
+        df_clean = df[~df['session_id'].duplicated(keep='first') | df['session_id'].isna()].copy()
         self.logger.info(f"Initial shape: {df.shape}. After removing duplicates: {df_clean.shape}")
 
         if "DateTime" in df_clean.columns:
@@ -267,10 +295,10 @@ class DataPreprocessor:
 
         return df_clean, X_train, X_test, y_train, y_test, fold_datasets
     
-    """
+    r"""
      ____                  
     / ___|  __ ___   _____ 
-    \___ \ / _` \ \ / / _ \
+    \___ \ / _` | \ / / _ |
      ___) | (_| |\ V /  __/
     |____/ \__,_| \_/ \___|
                         
