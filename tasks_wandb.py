@@ -179,14 +179,19 @@ def preprocess_and_train_flow(
         except Exception as e:
             print(f"Error loading hyperparameters from {params}: {e}")
     if train:
+        final_params_path = params if params else f"data/Hyperparams/best_params{run_id}.json"
+
+        print(f"✅ Using hyperparameter file: {final_params_path}")
+
         train_results = train_model(
-            trainer_params=loaded_params if loaded_params else best_params,
+            trainer_params=final_params_path,  # ✅ Pass the file path, NOT the dictionary
             folds_dir=folds_dir,
             test_file=test_file,
             model_name=model_name,
             callback=wandb_callback,
             run_id=run_id
         )
+
     
     # Finish the W&B run
     wandb.finish()
