@@ -58,7 +58,7 @@ class ModelTrainer:
             # Define hyperparameters to optimize
             params = {
                 
-                "depth": trial.suggest_int("depth", 3, 5),
+                "depth": trial.suggest_int("depth", 4, 7),
                 "learning_rate": trial.suggest_float("learning_rate", 0.08, 0.15),
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 15, 40),
                 "random_strength": trial.suggest_float("random_strength", 0.1, 1.5),
@@ -77,7 +77,7 @@ class ModelTrainer:
             if params["bootstrap_type"] == "Bayesian":
                 params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.8)
             if params['grow_policy'] == 'Depthwise':
-                params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 1, 10)
+                params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 20)
             elif params["bootstrap_type"] == "Bernoulli":
                 params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
             
@@ -224,7 +224,9 @@ class ModelTrainer:
         else:
             params = {'depth': 3, 'learning_rate': 0.12117083431119458, 
                       'l2_leaf_reg': 27.49102055289926, 'random_strength': 1.2079636934696745,
-                        'grow_policy': 'SymmetricTree', 'bootstrap_type': 'MVS'}
+                        'grow_policy': 'SymmetricTree', 'bootstrap_type': 'MVS',
+                        'iterations': 1000, 'eval_metric': 'F1', 'auto_class_weights': 'Balanced',
+                        'early_stopping_rounds': 100, 'random_seed': 42, 'verbose': 0}
 
         for fold_index in range(n_folds):
             self.logger.info(f"Processing fold {fold_index + 1}...")
@@ -235,15 +237,11 @@ class ModelTrainer:
 
             if self.model_name == "catboost":
                 model = CatBoostClassifier(
-                random_seed=42,
-                verbose=100,
-                eval_metric='F1',
                 cat_features=cat_features,
                 **params,
                 #auto_class_weights='Balanced',
                 #max_depth=5,
             #colsample_bylevel=0.7,
-                class_weights=[1, 1/a],
                 #bagging_temperature=0.4,
                 #grow_policy='SymmetricTree',
             # one_hot_max_size = 40,
@@ -253,7 +251,6 @@ class ModelTrainer:
                 #bootstrap_type = "Bayesian", #Bayesian uses the posterior probability of the object 
                                             #to sample the trees in the growing process. Good for regularization and overfitting control.
             # bootstrap_type='Bernoulli', #Bernoulli is Stochastic Gradient Boosting on random subsets of features, faster and less overfitting
-                early_stopping_rounds=100,
                 )
             elif self.model_name == "stacking":
                 X_train = self.fill_missing_with_mode(X_train)
@@ -342,7 +339,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    trainer = ModelTrainer(folds_dir=args.folds_dir, test_file=args.test_file, model_name=args.model_name)
+    trainer = ModelTrainer(folds_dir=args.folds_dir, test_file=args.test_file, 
+                           model_name=args.model_name, params=args.params)
 
     if args.tune:
         X_train, y_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl"), pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
