@@ -167,15 +167,17 @@ class ModelTrainer:
 
 
         return best_params
-    
+    """
     def feature_selection_rfecv(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
 
-        best_params = self.hyperparameter_tuning(X_train, y_train, categorical_cols, n_trials=n_trials, run_id=run_id)
-        cat_best = CatBoostClassifier(**best_params)
+        best_params = self.hyperparameter_tuning #With other model not cat boost
+        columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
+        X_train = pd.get_dummies(X_train, columns=columns_to_d) #Rfecv does not work with categorical features
+        mod_best = <entermodel>.fit(X_train, y_train)
 
         # Apply RFE with the best CatBoost model
-        rfecv = RFECV(estimator=cat_best, step=1, #number of features to remove at each iteration 
+        rfecv = RFECV(estimator=mod_best, step=1, #number of features to remove at each iteration 
                       cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=44), scoring='f1',n_jobs=-1)
         rfecv.fit(X_train, y_train)
 
@@ -183,6 +185,7 @@ class ModelTrainer:
         selected_features = X_train.columns[rfecv.support_]
         print("Selected Features:", selected_features)
         return selected_features
+    """
     
     def feature_selection(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
