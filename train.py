@@ -18,7 +18,7 @@ from sklearn.ensemble import StackingClassifier
 
 
 class ModelTrainer:
-    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None, params=False):
+    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None, params=None):
         self.folds_dir = Path(folds_dir)
         self.test_file = Path(test_file)
         self.model_name = model_name
@@ -167,6 +167,7 @@ class ModelTrainer:
 
 
         return best_params
+    
     """
     def feature_selection_rfecv(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -191,7 +192,8 @@ class ModelTrainer:
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
         
         best_params = self.hyperparameter_tuning(X_train, y_train, categorical_cols, n_trials=n_trials, run_id=run_id)
-        model = CatBoostClassifier(**best_params)
+        best_params['random_seed'] = 46
+        model = CatBoostClassifier(**best_params,)
         
         # Train model with categorical features properly handled
         model.fit(X_train, y_train, cat_features=categorical_cols)
@@ -215,7 +217,7 @@ class ModelTrainer:
         best_f1 = 0
         best_model = None
         fold_scores = []
-        if self.params:
+        if self.params is not None:
             #read params
             with open(self.params, 'r') as f:
                 params = json.load(f)
