@@ -34,3 +34,4 @@ ENV/
 # Wandb
 wandb/
 venvcat/
+venvcat/
