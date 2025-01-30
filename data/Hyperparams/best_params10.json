@@ -1,0 +1,15 @@
+{
+    "depth": 5,
+    "learning_rate": 0.13718459455534218,
+    "l2_leaf_reg": 38.03882045864116,
+    "random_strength": 0.39468800133376414,
+    "grow_policy": "Depthwise",
+    "bootstrap_type": "MVS",
+    "min_data_in_leaf": 4,
+    "iterations": 1000,
+    "eval_metric": "F1",
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
+}

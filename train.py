@@ -3,12 +3,18 @@ import pandas as pd
 import logging
 from pathlib import Path
 from catboost import CatBoostClassifier
+from sklearn.feature_selection import RFECV
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import optuna
 import pickle
 import numpy as np
 import json
+from sklearn.linear_model import SGDClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import ComplementNB, GaussianNB
+from sklearn.ensemble import StackingClassifier
 
 
 class ModelTrainer:
@@ -32,6 +38,17 @@ class ModelTrainer:
     def determine_categorical_features(self, X_train: pd.DataFrame):
         cat_features = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
         return cat_features
+    
+    def fill_missing_with_mode(self, X):
+        categorical_cols = X.select_dtypes(include=['category', 'object']).columns
+
+        df_temp = X.copy()
+
+        for col in categorical_cols:
+            mode_value = df_temp.loc[df_temp[col] != "missing", col].mode()[0]
+            mask = df_temp[col] == "missing"
+            df_temp.loc[mask, col] = mode_value
+        return df_temp
 
     def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series, cat_features: list, n_trials: int = 50, run_id: str = "1"):
 
@@ -150,6 +167,42 @@ class ModelTrainer:
 
 
         return best_params
+    
+    def feature_selection_rfecv(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
+        categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
+
+        best_params = self.hyperparameter_tuning(X_train, y_train, categorical_cols, n_trials=n_trials, run_id=run_id)
+        cat_best = CatBoostClassifier(**best_params)
+
+        # Apply RFE with the best CatBoost model
+        rfecv = RFECV(estimator=cat_best, step=1, #number of features to remove at each iteration 
+                      cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=44), scoring='f1',n_jobs=-1)
+        rfecv.fit(X_train, y_train)
+
+        # Selected features
+        selected_features = X_train.columns[rfecv.support_]
+        print("Selected Features:", selected_features)
+        return selected_features
+    
+    def feature_selection(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
+        categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
+        
+        best_params = self.hyperparameter_tuning(X_train, y_train, categorical_cols, n_trials=n_trials, run_id=run_id)
+        model = CatBoostClassifier(**best_params)
+        
+        # Train model with categorical features properly handled
+        model.fit(X_train, y_train, cat_features=categorical_cols)
+        
+        # Get feature importance using CatBoost's native method
+        feature_importance = model.get_feature_importance()
+        feature_names = X_train.columns
+        
+        # Select features based on importance threshold
+        important_features = feature_names[feature_importance > np.mean(feature_importance)]
+        
+        print("Selected Features:", important_features)
+        return important_features
+
 
     def train_and_evaluate(self):
         self.logger.info(f"Loading fold data from: {self.folds_dir}")
@@ -197,10 +250,46 @@ class ModelTrainer:
             # bootstrap_type='Bernoulli', #Bernoulli is Stochastic Gradient Boosting on random subsets of features, faster and less overfitting
                 early_stopping_rounds=100,
                 )
+            elif self.model_name == "stacking":
+                X_train = self.fill_missing_with_mode(X_train)
+                X_val = self.fill_missing_with_mode(X_val)
+                print(X_train.columns)
+                print(X_val.columns)
+                #use get_dummies to convert categorical columns to numerical
+                columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
+                X_train = pd.get_dummies(X_train, columns=columns_to_d)
+                X_val = pd.get_dummies(X_val, columns=columns_to_d)
+                sgd = SGDClassifier(random_state=42, loss='log_loss', class_weight='balanced')
+                lr = LogisticRegression(random_state=42, C = 0.1, class_weight = 'balanced', solver = 'liblinear', max_iter = 1000)
+                cb = ComplementNB()
+                gb = GaussianNB()
+                
+                base_models = {'SGDClassifier': sgd, 'LogisticRegression': lr, 'ComplementNB': cb, 'GaussianNB': gb}
+                base_f1_scores = {}
+
+                for name, model in base_models.items():
+                    model.fit(X_train, y_train)
+                    y_pred_base = model.predict(X_val)
+                    f1 = f1_score(y_val, y_pred_base)
+                    base_f1_scores[name] = f1
+                    self.logger.info(f"{name} F1 score: {f1}")
+
+                model = StackingClassifier(estimators=[('sgd', sgd), 
+                                                       ('lr', lr),
+                                                       ('cb', cb), 
+                                                       ('gb', gb)], final_estimator=LogisticRegression(random_state=42, C = 0.1, class_weight = 'balanced', solver = 'liblinear', max_iter = 1000),
+                                                       cv=5)
+
             else:
                 raise ValueError(f"Unsupported model: {self.model_name}")
+            
+            if self.model_name == "catboost":
+                model.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)
 
-            model.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)
+            elif self.model_name == "stacking":
+                model.fit(X_train, y_train)
+
+            
 
             y_val_pred = model.predict(X_val)
             fold_f1 = f1_score(y_val, y_val_pred)
@@ -244,6 +333,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", type=int, default=50, help="Number of Optuna trials for hyperparameter tuning (default: 50)")
     parser.add_argument("--train", action="store_true", help="Flag to train the model")
     parser.add_argument("--params", type=str, default=None, help="Hyperparameters for the model")
+    parser.add_argument("--feature_selection", action="store_true", help="Flag to perform feature selection")
 
     args = parser.parse_args()
 
@@ -256,3 +346,7 @@ if __name__ == "__main__":
 
     if args.train:
         trainer.train_and_evaluate()
+    
+    if args.feature_selection:
+        X_train, y_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl"), pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
+        trainer.feature_selection(X_train, y_train, n_trials=args.n_trials, run_id=args.run_id)
