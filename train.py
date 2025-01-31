@@ -28,6 +28,13 @@ class ModelTrainer:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
+    """       
+    ╦ ╦┌─┐┬  ┌─┐┌─┐┬─┐  ╔═╗┬ ┬┌┐┌┌─┐┌┬┐┬┌─┐┌┐┌┌─┐
+    ╠═╣├┤ │  ├─┘├┤ ├┬┘  ╠╣ │ │││││   │ ││ ││││└─┐
+    ╩ ╩└─┘┴─┘┴  └─┘┴└─  ╚  └─┘┘└┘└─┘ ┴ ┴└─┘┘└┘└─┘
+
+    """
+
     def load_fold_data(self, fold_index):
         X_train = pd.read_pickle(self.folds_dir / f"X_train_fold_{fold_index}.pkl")
         y_train = pd.read_pickle(self.folds_dir / f"y_train_fold_{fold_index}.pkl").squeeze()
@@ -39,7 +46,7 @@ class ModelTrainer:
         cat_features = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
         return cat_features
     
-    def fill_missing_with_mode(self, X):
+    def fill_missing_with_mode(self, X): # For naive stacking Model
         categorical_cols = X.select_dtypes(include=['category', 'object']).columns
 
         df_temp = X.copy()
@@ -49,6 +56,14 @@ class ModelTrainer:
             mask = df_temp[col] == "missing"
             df_temp.loc[mask, col] = mode_value
         return df_temp
+    
+    
+    """
+    ╦ ╦┬ ┬┌─┐┌─┐┬─┐┌─┐┌─┐┬─┐┌─┐┌┬┐┌─┐  ╔╦╗┬ ┬┌┐┌┌─┐
+    ╠═╣└┬┘├─┘├┤ ├┬┘├─┘├─┤├┬┘├─┤│││└─┐   ║ │ ││││├┤ 
+    ╩ ╩ ┴ ┴  └─┘┴└─┴  ┴ ┴┴└─┴ ┴┴ ┴└─┘   ╩ └─┘┘└┘└─┘
+
+    """
 
     def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series, cat_features: list, n_trials: int = 50, run_id: str = "1"):
 
@@ -172,6 +187,14 @@ class ModelTrainer:
 
         return best_params
     
+    
+    """
+    ╔═╗┌─┐┌─┐┌┬┐┬ ┬┬─┐┌─┐  ╔═╗┌─┐┬  ┌─┐┌─┐┌┬┐┬┌─┐┌┐┌
+    ╠╣ ├┤ ├─┤ │ │ │├┬┘├┤   ╚═╗├┤ │  ├┤ │   │ ││ ││││
+    ╚  └─┘┴ ┴ ┴ └─┘┴└─└─┘  ╚═╝└─┘┴─┘└─┘└─┘ ┴ ┴└─┘┘└┘
+
+    """
+    
     """
     def feature_selection_rfecv(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -212,6 +235,13 @@ class ModelTrainer:
         print("Selected Features:", important_features)
         return important_features
 
+
+    """
+    ╔╦╗┬─┐┌─┐┬┌┐┌
+     ║ ├┬┘├─┤││││
+     ╩ ┴└─┴ ┴┴┘└┘
+
+    """    
 
     def train_and_evaluate(self):
         self.logger.info(f"Loading fold data from: {self.folds_dir}")
@@ -321,11 +351,18 @@ class ModelTrainer:
         self.logger.info(f"Loading test data from: {self.test_file}")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
+        X_test_1st = pd.read_pickle(self.folds_dir / "X_test_DoNotTouch.pkl")
+        
 
-        self.logger.info("Predicting on test set using the best model...")
+        self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
         y_test_pred = best_model.predict(X_test)
         test_f1 = f1_score(y_test, y_test_pred)
+        y_test_pred_1st = best_model.predict(X_test_1st)
+        #save as predictions without indices and labels
+        predictions = pd.DataFrame(y_test_pred_1st)
+        predictions.to_csv(f'data/predictions/predictions{self.model_name}.csv', index=False, header=False)
         self.logger.info(f"F1 score on test set: {test_f1}")
+        self.logger.info(f"Prediction was saved with {predictions.shape[0]} rows to: data/predictions/predictions{self.model_name}.csv")
         if self.callback:
             self.callback({"test_f1": test_f1})
 

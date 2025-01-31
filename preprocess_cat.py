@@ -48,9 +48,10 @@ class DataPreprocessor:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
         df = pd.read_csv(csv_path)
+        X_test_external = pd.read_csv("data/raw/X_test_1st.csv")
         
         self.logger.info(f"Loading file from: {csv_path}")
-        return df
+        return df, X_test_external
     
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
@@ -169,10 +170,11 @@ class DataPreprocessor:
                 self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
                 df = self.fill_with_mode(df, cols_for_ffill_bfill)
                 self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
-        missing_is_click = df["is_click"].isna().sum()
-        if missing_is_click > 0:
-            self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
-            df = df.dropna(subset=["is_click"])
+        if "is_click" in df.columns:
+            missing_is_click = df["is_click"].isna().sum()
+            if missing_is_click > 0:
+                self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
+                df = df.dropna(subset=["is_click"])
 
         
         return df
@@ -248,21 +250,26 @@ class DataPreprocessor:
 
     """
     
-    def preprocess(self, df: pd.DataFrame) -> tuple:
+    def preprocess(self, df: pd.DataFrame, X_test_1st) -> tuple:
         #df_clean = df.drop_duplicates().copy()
         df_clean = df[~df['session_id'].duplicated(keep='first') | df['session_id'].isna()].copy()
+        X_test_1st = X_test_1st[~X_test_1st['session_id'].duplicated(keep='first') | X_test_1st['session_id'].isna()].copy()
         self.logger.info(f"Initial shape: {df.shape}. After removing duplicates: {df_clean.shape}")
 
         if "DateTime" in df_clean.columns:
             df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
+            X_test_1st["DateTime"] = pd.to_datetime(X_test_1st["DateTime"], errors="coerce")
 
         if self.remove_outliers:
             df_clean = self.remove_outliers(df_clean)
+            X_test_1st = self.remove_outliers(X_test_1st)
 
         if self.fillna:
             df_clean = self.fill_missing_values(df_clean)
+            X_test_1st = self.fill_missing_values(X_test_1st)
 
         df_clean = self.feature_generation(df_clean)
+        X_test_1st = self.feature_generation(X_test_1st)
 
         X = df_clean.drop(columns=["is_click"])
         y = df_clean["is_click"]
@@ -293,7 +300,7 @@ class DataPreprocessor:
         })
         self.logger.info("Created stratified folds for training data.")
 
-        return df_clean, X_train, X_test, y_train, y_test, fold_datasets
+        return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
     
     r"""
      ____                  
@@ -304,13 +311,14 @@ class DataPreprocessor:
                         
     """
 
-    def save_data(self, df_clean, X_train, X_test, y_train, y_test, fold_datasets):
+    def save_data(self, df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st):
         if self.save_as_pickle:
             df_clean.to_pickle(self.output_path / "cleaned_data.pkl")
             X_train.to_pickle(self.output_path / "X_train.pkl")
             X_test.to_pickle(self.output_path / "X_test.pkl")
             y_train.to_pickle(self.output_path / "y_train.pkl")
             y_test.to_pickle(self.output_path / "y_test.pkl")
+            X_test_1st.to_pickle(self.output_path / "X_test_DoNotTouch.pkl")
             
             # Save folds
             for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(fold_datasets):
@@ -326,6 +334,7 @@ class DataPreprocessor:
             X_test.to_csv(self.output_path / "X_test.csv", index=False)
             y_train.to_csv(self.output_path / "y_train.csv", index=False, header=True)
             y_test.to_csv(self.output_path / "y_test.csv", index=False, header=True)
+            X_test_1st.to_csv(self.output_path / "X_test_DoNotTouch.csv", index=False)
             
             # Save folds
             for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(fold_datasets):
@@ -356,6 +365,6 @@ if __name__ == "__main__":
         save_as_pickle=args.save_as_pickle
     )
 
-    df = preprocessor.load_data(Path(args.csv_path))
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
-    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets)
+    df,X_test_1st = preprocessor.load_data(Path(args.csv_path))
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets,X_test_1st = preprocessor.preprocess(df,X_test_1st)
+    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets,X_test_1st)
