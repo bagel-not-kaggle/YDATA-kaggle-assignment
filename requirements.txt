@@ -11,3 +11,4 @@ torch
 pytorch-tabnet
 wandb
 optuna
+fastapi[standard]

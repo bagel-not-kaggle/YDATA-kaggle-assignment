@@ -159,25 +159,26 @@ def preprocess_and_train_flow(
     
     # Step 3: Tune (optional)
     best_params = None
+
     if tune:
         best_params = tune_hyperparameters(
             base_trainer, folds_dir, n_trials, run_id
-        ).result()
+        )
+        
         if best_params:
             wandb.config.update(best_params)
+
+            best_params_path = f"data/Hyperparams/best_params{run_id}.json"
+            with open(best_params_path, "w") as f:
+                json.dump(best_params, f, indent=4)
+            print(f"✅ Saved best hyperparameters to {best_params_path}")
 
     # Step 4: Train (optional)
 
     loaded_params = None
 
     # Load hyperparameters if a params file is provided via CLI
-    if params is not None:
-        try:
-            with open(params, 'r') as f:
-                loaded_params = json.load(f)
-            print(f"Loaded hyperparameters from {params}: {loaded_params}")
-        except Exception as e:
-            print(f"Error loading hyperparameters from {params}: {e}")
+    
     if train:
         final_params_path = params if params else f"data/Hyperparams/best_params{run_id}.json"
 
@@ -191,6 +192,9 @@ def preprocess_and_train_flow(
             callback=wandb_callback,
             run_id=run_id
         )
+        if train_results:
+            print(f"✅ Training completed. Logging results: {train_results}")
+            wandb.log({"training_results": train_results})
 
     
     # Finish the W&B run
