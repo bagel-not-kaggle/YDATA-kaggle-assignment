@@ -6,10 +6,17 @@ from train import ModelTrainer
 import pandas as pd
 import numpy as np
 import json
+import argparse
 
-##############################################################################
-# 1. Universal W&B Callback
-##############################################################################
+
+"""
+
++-+-+-+ +-+-+-+-+-+-+-+-+-+
+|W|&|B| |C|a|l|l|b|a|c|k|s|
++-+-+-+ +-+-+-+-+-+-+-+-+-+
+
+"""
+
 def wandb_callback(metrics: dict):
     """
     A single callback that can be used for both preprocessing and training.
@@ -51,9 +58,14 @@ def wandb_callback(metrics: dict):
     # Log everything together
     wandb.log(processed_metrics)
 
-##############################################################################
-# 2. Preprocessing Task
-##############################################################################
+
+"""
++-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
+|P|r|e|p|r|o|c|e|s|s|i|n|g| |T|a|s|k|
++-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
+
+"""
+
 @task(name="preprocess_data")
 def preprocess_data(csv_path: str, output_path: str):
     """
@@ -72,9 +84,13 @@ def preprocess_data(csv_path: str, output_path: str):
     df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets)
 
-##############################################################################
-# 3. Tuning Task
-##############################################################################
+"""
++-+-+-+-+ +-+-+-+-+
+|T|u|n|e| |T|a|s|k|
++-+-+-+-+ +-+-+-+-+
+
+"""
+
 @task(name="tune_hyperparameters")
 def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
     X_train = pd.read_pickle(Path(folds_dir) / "X_train.pkl")
@@ -89,9 +105,14 @@ def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
         run_id=run_id
     )
 
-##############################################################################
-# 4. Training Task
-##############################################################################
+
+"""
++-+-+-+-+-+-+-+-+ +-+-+-+-+
+|T|r|a|i|n|i|n|g| |T|a|s|k|
++-+-+-+-+-+-+-+-+ +-+-+-+-+
+
+"""
+
 @task(name="train_model")
 def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_id):
     """
@@ -109,9 +130,14 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     )
     return trainer.train_and_evaluate()
 
-##############################################################################
-# 5. Main Flow
-##############################################################################
+
+"""
++-+-+-+-+ +-+-+-+-+
+|M|a|i|n| |F|l|o|w|
++-+-+-+-+ +-+-+-+-+
+
+"""
+
 @flow(name="preprocess_and_train_flow")
 def preprocess_and_train_flow(
     csv_path: str = "data/raw/train_dataset_full.csv",
@@ -199,28 +225,6 @@ def preprocess_and_train_flow(
     
     # Finish the W&B run
     wandb.finish()
-
-##############################################################################
-# 6. Command-line entry point
-##############################################################################
-#if __name__ == "__main__":
-    # Example default call
-    #preprocess_and_train_flow(
-    #    csv_path="data/raw/train_dataset_full.csv",
-    #    output_path="data/processed",
-    #    folds_dir="data/processed",
-    #    test_file="data/processed",
-    #    model_name="catboost",
-    #    run_id="1",
-    #    n_trials=50,
-    #    params = None,
-    #    preprocess=False,
-    #    tune=False,
-    #    train=True
-    #)
-import argparse
-from prefect import flow
-
 
 
 
