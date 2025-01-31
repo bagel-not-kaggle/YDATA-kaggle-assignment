@@ -12,3 +12,4 @@ pytorch-tabnet
 wandb
 optuna
 fastapi[standard]
+streamlit

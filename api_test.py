@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from catboost import CatBoostClassifier
 
 # Define model path
-MODEL_PATH = r"C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\models\catboost_model.cbm"
+MODEL_PATH = "models/catboost_model.cbm"
 
 # Lifespan event handler for FastAPI
 @asynccontextmanager
