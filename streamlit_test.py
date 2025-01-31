@@ -1,3 +1,4 @@
+"""
 import streamlit as st
 st.title("Streamlit Update Cycle - Potential Pitfall Example")
 # Counter example that resets unintentionally due to update cycle
@@ -23,4 +24,20 @@ st.write(
 if st.button("Try the fixed version (with session state)"):
    st.session_state.counter = st.session_state.get("counter", 0) + 1
    st.write(f"Fixed Counter Value: **{st.session_state.counter}**")
+"""
+import streamlit as st
+import joblib
+from app.consts import MODEL_PATH
+@st.cache_resource
+def load_model(path: str = MODEL_PATH):
+   model = joblib.load(path)
+   return model
+
+if __name__ == '__main__':
+   model = load_model()
+   model_input = st.number_input("Enter x")
+   is_clicked = st.button("Submit")
+   if is_clicked:
+       prediction = model.predict([[model_input]])
+       st.write(f"Prediction: {model_input}")
 
