@@ -36,7 +36,7 @@ class ResultsAnalyzer:
     def calculate_metrics(self):
         """Prints classification report and ROC-AUC score."""
         print("Classification Report:")
-        print(classification_report(self.y_true, self.y_pred))
+        print(classification_report(self.y_true, self.y_pred, digits = 4))
         print(f"ROC-AUC: {roc_auc_score(self.y_true, self.y_pred):.3f}")
     
     def plot_confusion_matrix(self):
