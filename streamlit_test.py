@@ -27,18 +27,18 @@ if st.button("Try the fixed version (with session state)"):
 """
 import streamlit as st
 import joblib
-from app.consts import MODEL_PATH
+
 MODEL_PATH = "models/catboost_model.cbm"
+
 @st.cache_resource
 def load_model(path: str = MODEL_PATH):
-   model = joblib.load(path)
-   return model
+    model = joblib.load(path)
+    return model
 
 if __name__ == '__main__':
-   model = load_model()
-   model_input = st.number_input("Enter x")
-   is_clicked = st.button("Submit")
-   if is_clicked:
-       prediction = model.predict([[model_input]])
-       st.write(f"Prediction: {model_input}")
-
+    model = load_model()
+    model_input = st.number_input("Enter x")
+    is_clicked = st.button("Submit")
+    if is_clicked:
+        prediction = model.predict([[model_input]])
+        st.write(f"Prediction: {prediction[0]}")
