@@ -359,12 +359,13 @@ class ModelTrainer:
         test_f1 = f1_score(y_test, y_test_pred)
         y_test_pred_1st = best_model.predict(X_test_1st)
         #save as predictions without indices and labels
-        predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
-        predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
-        predictions = pd.DataFrame(y_test_pred_1st, columns=['is_click'])
-        predictions.to_csv(f'data/predictions/predictions{self.model_name}.csv', index=False)
+        if self.model_name == "catboost":
+            predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
+            predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
+            predictions = pd.DataFrame(y_test_pred_1st, columns=['is_click'])
+            predictions.to_csv(f'data/predictions/predictions{self.model_name}.csv', index=False)
+            self.logger.info(f"Prediction was saved with {predictions.shape[0]} rows to: data/predictions/predictions{self.model_name}.csv")
         self.logger.info(f"F1 score on test set: {test_f1}")
-        self.logger.info(f"Prediction was saved with {predictions.shape[0]} rows to: data/predictions/predictions{self.model_name}.csv")
         if self.callback:
             self.callback({"test_f1": test_f1})
 
