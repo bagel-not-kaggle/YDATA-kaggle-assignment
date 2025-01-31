@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
+import seaborn as sns
 import logging
 from sklearn.metrics import (
     confusion_matrix,
@@ -36,8 +37,20 @@ class ResultsAnalyzer:
     def calculate_metrics(self):
         """Prints classification report and ROC-AUC score."""
         print("Classification Report:")
-        print(classification_report(self.y_true, self.y_pred, digits = 4))
-        print(f"ROC-AUC: {roc_auc_score(self.y_true, self.y_pred):.3f}")
+        classification_report1 = classification_report(self.y_true, self.y_pred, digits = 4, output_dict=True)
+        #plot classification report
+
+        # Convert to DataFrame (dropping support column to keep it clean)
+        report_df = pd.DataFrame(classification_report1).T
+
+        # Plot using Seaborn
+        plt.figure(figsize=(8, 5))
+        sns.heatmap(report_df, annot=True, cmap="Blues", fmt=".2f", linewidths=0.5)
+        plt.title("Classification Report Heatmap")
+        plt.xlabel("Metrics")
+
+        # Save and show
+        plt.show()
     
     def plot_confusion_matrix(self):
         """Displays the confusion matrix."""
