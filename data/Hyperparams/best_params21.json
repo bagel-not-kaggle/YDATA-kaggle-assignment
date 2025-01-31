@@ -1,0 +1,16 @@
+{
+    "depth": 6,
+    "learning_rate": 0.1453152605965643,
+    "l2_leaf_reg": 34.74098776648878,
+    "random_strength": 0.6111210045146058,
+    "bootstrap_type": "Bayesian",
+    "bagging_temperature": 0.26869982831249933,
+    "grow_policy": "Depthwise",
+    "min_data_in_leaf": 11,
+    "iterations": 1000,
+    "eval_metric": "F1",
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
+}
