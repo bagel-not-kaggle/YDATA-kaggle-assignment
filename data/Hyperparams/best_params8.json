@@ -1,0 +1,15 @@
+{
+    "depth": 5,
+    "learning_rate": 0.13866489635926801,
+    "l2_leaf_reg": 35.21639812312044,
+    "random_strength": 0.2089659737598664,
+    "grow_policy": "SymmetricTree",
+    "bootstrap_type": "Bernoulli",
+    "subsample": 0.7970012117312087,
+    "iterations": 1000,
+    "eval_metric": "F1",
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
+}

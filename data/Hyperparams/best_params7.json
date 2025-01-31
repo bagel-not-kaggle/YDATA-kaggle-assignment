@@ -1,0 +1,8 @@
+{
+    "depth": 3,
+    "learning_rate": 0.10319123454758475,
+    "l2_leaf_reg": 22.4083234557099,
+    "random_strength": 0.28813665515941167,
+    "grow_policy": "SymmetricTree",
+    "bootstrap_type": "MVS"
+}
