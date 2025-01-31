@@ -26,13 +26,14 @@ if st.button("Try the fixed version (with session state)"):
    st.write(f"Fixed Counter Value: **{st.session_state.counter}**")
 """
 import streamlit as st
-import joblib
+from catboost import CatBoostClassifier
 
 MODEL_PATH = "models/catboost_model.cbm"
 
 @st.cache_resource
 def load_model(path: str = MODEL_PATH):
-    model = joblib.load(path)
+    model = CatBoostClassifier()
+    model.load_model(path)
     return model
 
 if __name__ == '__main__':
