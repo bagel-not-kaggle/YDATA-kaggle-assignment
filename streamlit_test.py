@@ -28,6 +28,7 @@ if st.button("Try the fixed version (with session state)"):
 import streamlit as st
 import joblib
 from app.consts import MODEL_PATH
+MODEL_PATH = "models/catboost_model.cbm"
 @st.cache_resource
 def load_model(path: str = MODEL_PATH):
    model = joblib.load(path)
