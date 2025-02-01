@@ -26,17 +26,16 @@ if __name__ == '__main__':
     train_data, validation_data = train_test_split(data, test_size=0.2, random_state=111)
 
     # Preprocessing
-    train_preprocessor = Preprocessor()
-    train_processed_data = train_preprocessor.preprocess_data(train_data)
+    preprocessor = Preprocessor()
+    train_processed_data = preprocessor.preprocess_train(train_data)
     X_train, y_train = train_processed_data.drop(columns='is_click'), train_processed_data['is_click']
 
     # Training
-    trainer = Trainer(X_train, y_train, n_trials=3, model_path=model_path)
+    trainer = Trainer(X_train, y_train, n_trials=1, model_path=model_path)
     trainer.run_training()
 
     # Prediction
-    pred_preprocessor = Preprocessor()
-    pred_processed_data = pred_preprocessor.preprocess_data(validation_data)
+    pred_processed_data = preprocessor.preprocess_test(validation_data)
     X_val, y_val = pred_processed_data.drop(columns='is_click'), pred_processed_data['is_click']
 
     predictor = Predictor(model_path)
