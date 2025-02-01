@@ -105,7 +105,7 @@ class DataPreprocessor:
         return df
     
     # Function to infer missing values based on user_id
-    def infer_by_user(self, df: pd.DataFrame, target_col, key_col='user_id', mapping_df=None)-> pd.DataFrame:
+    def infer_by_col(self, df: pd.DataFrame, target_col, key_col='user_id', mapping_df=None)-> pd.DataFrame:
         """
         Infers missing values in `target_col` based on a mapping from `key_col`.
         
@@ -139,11 +139,117 @@ class DataPreprocessor:
         
         return df
 
-    def deterministic_fill(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
-        # adding -1 to "is_click" as a test indicator
-        df_test["is_click"] = np.full(df_test.shape[0], -1)
+    # Function to infer missing values based on group combinations
+    def infer_by_two_cols(self, df: pd.DataFrame, target_col, key_cols, mapping_df=None)-> pd.DataFrame:
+        """
+        Infers missing values in `target_col` based on a unique mapping from `group_cols`.
+        
+        Parameters:
+            df (pd.DataFrame): The DataFrame containing the data.
+            group_cols (list of str): The columns to group by for mapping.
+            target_col (str): The column to fill missing values in.
+            mapping_df (pd.DataFrame, optional): A pre-filtered DataFrame to build the mapping from.
+                                                If None, uses the entire DataFrame.
+        
+        Returns:
+            pd.DataFrame: The DataFrame with missing values in `target_col` filled.
+        """
+        # Use the entire DataFrame or the provided mapping DataFrame
+        if mapping_df is not None:
+            source_df = mapping_df
+        else:
+            source_df = df
+        
+        # Create a dictionary mapping group_cols to target_col, ignoring NaNs
+        mapping_dict = (
+            source_df.dropna(subset=[target_col])
+                    .groupby(key_cols)[target_col]
+                    .first()  # Assumes there's only one unique value per group
+                    .to_dict()
+        )
+        
+        # Create a MultiIndex based on group_cols and map to target_col
+        mapped_values = df.set_index(key_cols).index.map(mapping_dict)
+        
+        # Convert the mapped values to a Series aligned with the original DataFrame
+        mapped_series = pd.Series(mapped_values, index=df.index)
+        
+        # Fill missing values in target_col
+        df[target_col] = df[target_col].fillna(mapped_series)
+        
+        return df
+    
+    def fillna_when_single_unique_value(self, df: pd.DataFrame, group_col)-> pd.DataFrame:
+        """
+        For each group (based on group_col) and for each column:
+        - if that column has exactly one unique non-null value within the group,
+            fill any NaNs in that column with the single unique value.
+        """
+        df = df.copy()  # avoid mutating original
+        
+        fillable_cols = ['DateTime', 'user_id', 'product', 'campaign_id',
+       'webpage_id', 'product_category_1', 'user_group_id', 'gender', 'age_level', 'user_depth',
+       'city_development_index', 'var_1']
+        
+        for col in fillable_cols:
+            # For each group, collect the array of unique non-null values
+            group_unique = (
+                df.groupby(group_col)[col]
+                .apply(lambda x: x.dropna().unique())
+            )
+            # Convert that array into a single value if length == 1, else np.nan
+            single_val_map = group_unique.apply(
+                lambda arr: arr[0] if len(arr) == 1 else np.nan
+            ).to_dict()
 
-        stacked_df = pd.concat([df_train, df_test], ignore_index=True)
+            # Now fill the missing values for groups that have a single unique value
+            def _fill_func(row):
+                if pd.isnull(row[col]):
+                    # Look up the single possible value for this group
+                    possible_val = single_val_map.get(row[group_col], np.nan)
+                    if not pd.isnull(possible_val):
+                        return possible_val
+                return row[col]
+            
+            df[col] = df.apply(_fill_func, axis=1)
+
+        return df
+
+    def deterministic_fill(self, df: pd.DataFrame) -> pd.DataFrame:
+        changed = True
+        max_iterations = 10
+        iteration = 0
+
+        while changed and iteration < max_iterations:
+            old_df = df.copy()
+            user_cols = ['user_group_id', 'gender', 'age_level', 'city_development_index', 'user_depth']
+
+            for col in user_cols:
+                df = self.infer_by_col(df, col, key_col='user_id')
+
+            #infer webpage_id from campaign_id
+            df = self.infer_by_col(df, "webpage_id", key_col='campaign_id')
+
+            df = self.infer_by_col(df, "product_category_1", key_col='campaign_id', mapping_df= df[df.campaign_id == 396664])
+
+            df = self.infer_by_col(df, "campaign_id", key_col='webpage_id', mapping_df= df[df.webpage_id != 13787])
+
+            df = self.infer_by_col(df, "product_category_1", key_col='webpage_id', mapping_df= df[df.webpage_id == 51181])
+
+            df = self.infer_by_col(df, "gender", key_col='user_group_id', mapping_df= df[df.user_group_id != 0])
+
+            df = self.infer_by_col(df, "age_level", key_col='user_group_id')
+
+            df = self.infer_by_col(df, "user_group_id", key_col='age_level', mapping_df= df[df.age_level == 0])
+
+            df = self.infer_by_two_cols(df, target_col="user_group_id", key_cols=["age_level", "gender"])
+ 
+            df = self.fillna_when_single_unique_value(df, group_col= "product_category_2")
+
+            changed = not df.equals(old_df)
+            iteration += 1
+
+        return df
     
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
@@ -327,52 +433,50 @@ class DataPreprocessor:
 
         df = self.concat_train_test(df_train, df_test)
 
-        user_cols = ['user_group_id', 'gender', 'age_level', 'city_development_index', 'user_depth']
+        df = self.deterministic_fill(df)
 
-        for col in user_cols:
-            df = self.infer_by_user(df, col, key_col='user_id', mapping_df=None)
 
-        if "DateTime" in df_clean.columns:
-            df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
+        # if "DateTime" in df_clean.columns:
+        #     df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
 
-        if self.remove_outliers:
-            df_clean = self.remove_outliers(df_clean)
+        # if self.remove_outliers:
+        #     df_clean = self.remove_outliers(df_clean)
 
-        if self.fillna:
-            df_clean = self.fill_missing_values(df_clean)
+        # if self.fillna:
+        #     df_clean = self.fill_missing_values(df_clean)
 
-        df_clean = self.feature_generation(df_clean)
+        # df_clean = self.feature_generation(df_clean)
 
-        X = df_clean.drop(columns=["is_click"])
-        y = df_clean["is_click"]
+        # X = df_clean.drop(columns=["is_click"])
+        # y = df_clean["is_click"]
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        # Create stratified folds for train set
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        fold_datasets = []
+        # # Create stratified folds for train set
+        # skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        # fold_datasets = []
 
-        for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
-            X_train_fold = X_train.iloc[train_idx]
-            y_train_fold = y_train.iloc[train_idx]
-            X_val_fold = X_train.iloc[val_idx]
-            y_val_fold = y_train.iloc[val_idx]
-            fold_datasets.append((X_train_fold, y_train_fold, X_val_fold, y_val_fold))
-            self.callback({
-            f"fold_{fold}_train_dataset": X_train_fold,
-            f"fold_{fold}_val_dataset": X_val_fold,
-            f"fold_{fold}_train_target": y_train_fold,
-            f"fold_{fold}_val_target": y_val_fold
-            })
-        self.callback({
-            "X_train": X_train,
-            "X_test": X_test,
-            "y_train": y_train,
-            "y_test": y_test
-        })
-        self.logger.info("Created stratified folds for training data.")
+        # for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
+        #     X_train_fold = X_train.iloc[train_idx]
+        #     y_train_fold = y_train.iloc[train_idx]
+        #     X_val_fold = X_train.iloc[val_idx]
+        #     y_val_fold = y_train.iloc[val_idx]
+        #     fold_datasets.append((X_train_fold, y_train_fold, X_val_fold, y_val_fold))
+        #     self.callback({
+        #     f"fold_{fold}_train_dataset": X_train_fold,
+        #     f"fold_{fold}_val_dataset": X_val_fold,
+        #     f"fold_{fold}_train_target": y_train_fold,
+        #     f"fold_{fold}_val_target": y_val_fold
+        #     })
+        # self.callback({
+        #     "X_train": X_train,
+        #     "X_test": X_test,
+        #     "y_train": y_train,
+        #     "y_test": y_test
+        # })
+        # self.logger.info("Created stratified folds for training data.")
 
-        return df_clean, X_train, X_test, y_train, y_test, fold_datasets
+        # return df_clean, X_train, X_test, y_train, y_test, fold_datasets
     
     """
      ____                  
