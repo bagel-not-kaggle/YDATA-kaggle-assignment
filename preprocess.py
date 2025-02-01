@@ -8,7 +8,7 @@ import numpy as np
 class Preprocessor:
     def __init__(self):
         self.user_labels = ['gender', 'age_level', 'user_group_id']
-        self.categorical_columns =['product', 'gender','user_group_id', 'campaign_id', 'webpage_id','product_category_1', 'product_category_2']
+        self.categorical_columns =['product', 'gender','user_group_id', 'campaign_id', 'webpage_id','product_category_1']
         # self.wandb_run = wandb.init(project="shay-kaggle-competition")
 
     def load_data(self,data_dir: Path) -> pd.DataFrame:
@@ -22,7 +22,7 @@ class Preprocessor:
 
     def drop_cloumns(self, data: pd.DataFrame) -> pd.DataFrame:
         # self.wandb_run.log({"dropped_nan_coulmns": drop_columns})
-        drop_columns = ['city_development_index', 'var_1']
+        drop_columns = ['session_id', 'DateTime','user_id', 'product_category_2','city_development_index']
         return data.drop(columns=drop_columns, errors='ignore')
 
     def drop_dupliaction(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -34,11 +34,24 @@ class Preprocessor:
         data['day_of_week'] = pd.to_datetime(data['DateTime']).dt.dayofweek
         data['month'] = pd.to_datetime(data['DateTime']).dt.month
 
-        # Drop original DateTime column
-        data.drop(['DateTime'], axis=1, inplace=True)
-
         # Interaction features (example)
         data['product_user_depth'] = data['product_category_1'] * data['user_depth']
+
+        # Add user features
+        data = self.create_user_features(data)
+        print(f"create_user_features: {data.shape}")
+
+        # Add campaign features
+        data = self.create_campaign_features(data)
+        print(f"create_campaign_features: {data.shape}")
+
+        # Add product features
+        data = self.create_product_features(data)
+        print(f"create_product_features: {data.shape}")
+
+        #drop features
+        data = self.drop_cloumns(data)
+        print(f"drop_cloumns: {data.shape}")
 
         # self.wandb_run.log({})
         return data
@@ -79,7 +92,7 @@ class Preprocessor:
       return correlated_features
 
     def select_features_chi2(self, data, alpha=0.05):
-        categorical_features = ['user_group_id', 'campaign_id', 'webpage_id', 'product_category_1', 'product_category_2','is_click']
+        categorical_features = ['user_group_id', 'campaign_id', 'webpage_id', 'product_category_1','is_click']
         data = data.dropna(subset=categorical_features)
         X = data[categorical_features]
         y = data['is_click']
@@ -96,12 +109,108 @@ class Preprocessor:
         # Select features with p-value < 0.05
         return results[results['p-value'] < alpha]
 
+    def create_user_features(self, train_dataset):
+
+        # User-Specific CTR
+        user_ctr = train_dataset.groupby('user_id')['is_click'].mean().rename('user_ctr')
+
+        # User-Campaign Interaction
+        user_campaign_ctr = train_dataset.groupby(['user_id', 'campaign_id'])['is_click'].mean().rename(
+            'campaign_ctr').reset_index()
+        user_campaign_clicks = train_dataset.groupby(['user_id', 'campaign_id'])['is_click'].sum().rename(
+            'campaign_clicks').reset_index()
+
+        # Frequency-based features
+        user_product_views = train_dataset.groupby(['user_id', 'product'])['session_id'].count().rename(
+            'user_product_views').reset_index()
+        user_category_views = train_dataset.groupby(['user_id', 'product_category_1'])['session_id'].count().rename(
+            'user_category_views').reset_index()
+
+        # Aggregated category-level features
+        category_ctr = train_dataset.groupby('product_category_1')['is_click'].mean().rename(
+            'category_ctr').reset_index()
+
+        # Total Number of Sessions
+        user_sessions = train_dataset.groupby('user_id')['session_id'].nunique().rename('total_sessions').reset_index()
+
+        # Merge features
+        user_features = pd.merge(train_dataset, user_ctr, on='user_id', how='left')
+        user_features = pd.merge(user_features, user_campaign_ctr, on=['user_id', 'campaign_id'], how='left')
+        user_features = pd.merge(user_features, user_campaign_clicks, on=['user_id', 'campaign_id'], how='left')
+        user_features = pd.merge(user_features, user_product_views, on=['user_id', 'product'], how='left')
+        user_features = pd.merge(user_features, user_category_views, on=['user_id', 'product_category_1'], how='left')
+        user_features = pd.merge(user_features, category_ctr, on=['product_category_1'], how='left')
+        user_features = pd.merge(user_features, user_sessions, on=['user_id'], how='left')
+
+        user_features.fillna(0, inplace=True)  # Fill NaN (for users with no views) with 0
+
+        return user_features
+
+    def create_campaign_features(self, train_dataset):
+
+        campaign_ctr = train_dataset.groupby('campaign_id')['is_click'].mean().rename('campaign_ctr')
+        campaign_clicks = train_dataset.groupby('campaign_id')['is_click'].sum().rename('campaign_clicks')
+        campaign_views = train_dataset.groupby('campaign_id')['session_id'].count().rename('campaign_views')
+
+        campaign_features = pd.concat([campaign_ctr, campaign_clicks, campaign_views], axis=1).reset_index()
+
+        # Campaign-Product Interaction
+        campaign_product_ctr = train_dataset.groupby(['campaign_id', 'product'])['is_click'].mean().rename(
+            'product_ctr').reset_index()
+        campaign_product_clicks = train_dataset.groupby(['campaign_id', 'product'])['is_click'].sum().rename(
+            'product_clicks').reset_index()
+
+        # Frequency-based features
+        campaign_product_views = train_dataset.groupby(['campaign_id', 'product'])['session_id'].count().rename(
+            'campaign_product_views').reset_index()
+        campaign_category_views = train_dataset.groupby(['campaign_id', 'product_category_1'])['session_id'].count().rename(
+            'campaign_category_views').reset_index()
+
+        # Merge features
+        campaign_features = pd.merge(train_dataset, campaign_features, on='campaign_id', how='left')
+        campaign_features = pd.merge(campaign_features, campaign_product_ctr, on=['campaign_id', 'product'], how='left')
+        campaign_features = pd.merge(campaign_features, campaign_product_clicks, on=['campaign_id', 'product'], how='left')
+        campaign_features = pd.merge(campaign_features, campaign_product_views, on=['campaign_id', 'product'], how='left')
+        campaign_features = pd.merge(campaign_features, campaign_category_views, on=['campaign_id', 'product_category_1'], how='left')
+
+        campaign_features.fillna(0, inplace=True)
+
+        return campaign_features
+
+    def create_product_features(self, train_dataset):
+
+            product_ctr = train_dataset.groupby('product')['is_click'].mean().rename('product_ctr')
+            product_clicks = train_dataset.groupby('product')['is_click'].sum().rename('product_clicks')
+            product_views = train_dataset.groupby('product')['session_id'].count().rename('product_views')
+
+            product_features = pd.concat([product_ctr, product_clicks, product_views], axis=1).reset_index()
+
+            # Product-Category Interaction
+            product_category_ctr = train_dataset.groupby(['product', 'product_category_1'])['is_click'].mean().rename(
+                'category_ctr').reset_index()
+            product_category_clicks = train_dataset.groupby(['product', 'product_category_1'])['is_click'].sum().rename(
+                'category_clicks').reset_index()
+
+            # Frequency-based features
+            product_category_views = train_dataset.groupby(['product', 'product_category_1'])['session_id'].count().rename(
+                'product_category_views').reset_index()
+            product_user_views = train_dataset.groupby(['product', 'user_id'])['session_id'].count().rename(
+                'product_user_views').reset_index()
+
+            # Merge features
+            product_features = pd.merge(train_dataset, product_features, on='product', how='left')
+            product_features = pd.merge(product_features, product_category_ctr, on=['product', 'product_category_1'], how='left')
+            product_features = pd.merge(product_features, product_category_clicks, on=['product', 'product_category_1'], how='left')
+            product_features = pd.merge(product_features, product_category_views, on=['product', 'product_category_1'], how='left')
+            product_features = pd.merge(product_features, product_user_views, on=['product', 'user_id'], how='left')
+
+            product_features.fillna(0, inplace=True)
+
+            return product_features
+
     def preprocess_data(self, data):
         # drop nan values
         data = self.drop_nan(data)
-
-        # Drop columns with high percentage of missing values
-        data = self.drop_cloumns(data)
 
         data = self.drop_dupliaction(data)
 
@@ -140,9 +249,11 @@ if __name__ == '__main__':
     import numpy as np
 
     # Load the data
-    data_path = '/content/sample_data/train_dataset_full.csv'
+    data_path = 'data/raw/train_dataset_full.csv'
     preprocessor = Preprocessor()
     data = preprocessor.load_data(data_path)
+
+    data = preprocessor.preprocess_data(data)
 
     # Separate features and target
     X = data.drop('is_click', axis=1)

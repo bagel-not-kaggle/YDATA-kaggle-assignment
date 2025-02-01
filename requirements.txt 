@@ -9,3 +9,6 @@ jupyter
 plotly
 StandardScaler
 invoke
+FastAPI
+streamlit
+optuna

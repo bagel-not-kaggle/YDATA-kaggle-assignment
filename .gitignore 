@@ -12,6 +12,7 @@ venv/
 # Ignore log files
 *.log
 data/
+model/
 
 # Ignore specific files
 secret_config.py
