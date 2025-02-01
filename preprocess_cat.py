@@ -251,6 +251,13 @@ class DataPreprocessor:
 
         return df
     
+    def split_to_train_test(self, df: pd.DataFrame) -> pd.DataFrame:
+        train_df = df[df.is_click !=-1]
+        test_df = df[df.is_click ==-1]
+        return train_df, test_df
+
+
+
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
             mean = df["age_level"].mean()
@@ -425,7 +432,7 @@ class DataPreprocessor:
 
         df_train = self.drop_na_session_id_or_is_click(df_train)
 
-        df_train = self.drop_dup_session_id(df_train) 
+        df_train = self.drop_dup_session_id(df_train)
 
         df_test = self.decrease_test_user_group_id(df_test) 
 
@@ -433,9 +440,11 @@ class DataPreprocessor:
 
         df = self.concat_train_test(df_train, df_test)
 
+        self.logger.info(f"Total number of missing values in the joint dataset: {df.isna().sum().sum()}")
         df = self.deterministic_fill(df)
+        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum().sum()}")
 
-
+        df_train, df_test = self.split_to_train_test(df)
         # if "DateTime" in df_clean.columns:
         #     df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
 
