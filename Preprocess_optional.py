@@ -373,7 +373,7 @@ class DataPreprocessor:
 
     """
 
-    def smooth_ctr(self,data, target_col, alpha=10):
+    def smooth_ctr(self, data, target_col, alpha=10):
         """Smooths the CTR by adding a prior."""
         # 1) Compute clicks and views
         clicks = data.groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
@@ -492,13 +492,15 @@ class DataPreprocessor:
             df_train = self.fill_missing_values(df_train)
             df_test = self.fill_missing_values(df_test)
 
-        df_train = self.feature_generation(df_train)
+        #df_train = self.feature_generation(df_train)
         df_test = self.feature_generation(df_test)
 
         X = df_train.drop(columns=["is_click"])
         y = df_train["is_click"]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train = self.feature_generation(X_train)
+        X_test = self.feature_generation(X_test)
 
         # Create stratified folds for train set
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)

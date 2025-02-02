@@ -351,20 +351,20 @@ class ModelTrainer:
         self.logger.info(f"Loading test data from: {self.test_file}")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
-        X_test_1st = pd.read_pickle(self.folds_dir / "X_test_DoNotTouch.pkl")
+        #X_test_1st = pd.read_pickle(self.folds_dir / "X_test_DoNotTouch.pkl")
         
 
         self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
         y_test_pred = best_model.predict(X_test)
         test_f1 = f1_score(y_test, y_test_pred)
-        y_test_pred_1st = best_model.predict(X_test_1st)
+        #y_test_pred_1st = best_model.predict(X_test_1st)
         #save as predictions without indices and labels
         if self.model_name == "catboost":
             predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
             predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
-            predictions = pd.DataFrame(y_test_pred_1st, columns=['is_click'])
-            predictions.to_csv(f'data/predictions/predictions{self.model_name}.csv', index=False)
-            self.logger.info(f"Prediction was saved with {predictions.shape[0]} rows to: data/predictions/predictions{self.model_name}.csv")
+            #predictions = pd.DataFrame(y_test_pred_1st, columns=['is_click'])
+            #predictions.to_csv(f'data/predictions/predictions{self.model_name}.csv', index=False)
+            #self.logger.info(f"Prediction was saved with {predictions.shape[0]} rows to: data/predictions/predictions{self.model_name}.csv")
         self.logger.info(f"F1 score on test set: {test_f1}")
         if self.callback:
             self.callback({"test_f1": test_f1})
