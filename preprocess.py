@@ -6,10 +6,10 @@ import numpy as np
 # import wandb
 
 class Preprocessor:
-    def __init__(self):
+    def __init__(self, alpha=10):
         self.user_labels = ['gender', 'age_level', 'user_group_id']
         self.categorical_columns =['product', 'gender','user_group_id', 'campaign_id', 'webpage_id','product_category_1']
-
+        self.alpha = alpha
     def load_data(self,data_dir: Path) -> pd.DataFrame:
         return pd.read_csv(data_dir)
 
@@ -32,6 +32,9 @@ class Preprocessor:
         data['hour'] = pd.to_datetime(data['DateTime']).dt.hour
         data['day_of_week'] = pd.to_datetime(data['DateTime']).dt.dayofweek
         data['month'] = pd.to_datetime(data['DateTime']).dt.month
+
+        # Calculate global CTR
+        self.global_ctr = data['is_click'].mean()
 
         # Add user features
         data = self.create_user_features(data, is_train)
@@ -107,71 +110,98 @@ class Preprocessor:
 
     def create_user_features(self, data, is_train):
         if is_train:
-            # User-Specific CTR
-            self.user_ctr = data.groupby('user_id')['is_click'].mean().rename('user_ctr')
-            self.user_campaign_ctr = data.groupby(['user_id', 'campaign_id'])['is_click'].mean().rename('campaign_ctr').reset_index()
-            self.user_campaign_clicks = data.groupby(['user_id', 'campaign_id'])['is_click'].sum().rename('campaign_clicks').reset_index()
-            self.user_product_views = data.groupby(['user_id', 'product'])['session_id'].count().rename('user_product_views').reset_index()
-            self.user_category_views = data.groupby(['user_id', 'product_category_1'])['session_id'].count().rename('user_category_views').reset_index()
-            self.category_ctr = data.groupby('product_category_1')['is_click'].mean().rename('category_ctr').reset_index()
-            self.user_sessions = data.groupby('user_id')['session_id'].nunique().rename('total_sessions').reset_index()
+            # Calculate user-specific clicks and views
+            user_clicks = data.groupby('user_id')['is_click'].sum().rename('user_clicks')
+            self.user_views = data.groupby('user_id')['session_id'].count().rename('user_views')
+
+            # Calculate smoothed user CTR
+            self.user_ctr = ((user_clicks + self.alpha * self.global_ctr) / (self.user_views + self.alpha)).rename('user_ctr')
+
+            # # Calculate user-campaign-specific clicks and views
+            # user_campaign_clicks = data.groupby(['user_id', 'campaign_id'])['is_click'].sum().rename('campaign_clicks').reset_index()
+            # self.user_campaign_views = data.groupby(['user_id', 'campaign_id'])['session_id'].count().rename('campaign_views').reset_index()
+
+            # # Calculate smoothed user-campaign CTR
+            # self.user_campaign_ctr = ((user_campaign_clicks['campaign_clicks'] + self.alpha * self.global_ctr) / (self.user_campaign_views['campaign_views'] + self.alpha)).rename('user_campaign_ctr')
+            #
+            # # Calculate user-product-specific clicks and views
+            # user_product_clicks = data.groupby(['user_id', 'product'])['is_click'].sum().rename('product_clicks').reset_index()
+            # self.user_product_views = data.groupby(['user_id', 'product'])['session_id'].count().rename('product_views').reset_index()
+            #
+            # # Calculate smoothed user-product CTR
+            # self.user_product_ctr = ((user_product_clicks['product_clicks'] + self.alpha * self.global_ctr) / (self.user_product_views['product_views'] + self.alpha)).rename('user_product_ctr')
+            #
+            # # Calculate user-category-specific clicks and views
+            # user_category_clicks = data.groupby(['user_id', 'product_category_1'])['is_click'].sum().rename('category_clicks').reset_index()
+            # self.user_category_views = data.groupby(['user_id', 'product_category_1'])['session_id'].count().rename('category_views').reset_index()
+            #
+            # # Calculate smoothed user-category CTR
+            # self.user_category_ctr = ((user_category_clicks['category_clicks'] + self.alpha * self.global_ctr) / (self.user_category_views['category_views'] + self.alpha)).rename('user_category_ctr')
 
         # Merge features
-        user_features = pd.merge(data, self.user_ctr, on='user_id', how='left')
-        user_features = pd.merge(user_features, self.user_campaign_ctr, on=['user_id', 'campaign_id'], how='left')
-        user_features = pd.merge(user_features, self.user_campaign_clicks, on=['user_id', 'campaign_id'], how='left')
-        user_features = pd.merge(user_features, self.user_product_views, on=['user_id', 'product'], how='left')
-        user_features = pd.merge(user_features, self.user_category_views, on=['user_id', 'product_category_1'], how='left')
-        user_features = pd.merge(user_features, self.category_ctr, on=['product_category_1'], how='left')
-        user_features = pd.merge(user_features, self.user_sessions, on=['user_id'], how='left')
+        data = pd.merge(data, self.user_ctr, on='user_id', how='left')
+        data = pd.merge(data, self.user_views, on='user_id', how='left')
+        # data = pd.merge(data, self.user_campaign_ctr, on=['user_id', 'campaign_id'], how='left')
+        # data = pd.merge(data, self.user_campaign_views, on=['user_id', 'campaign_id'], how='left')
+        # data = pd.merge(data, self.user_product_ctr, on=['user_id', 'product'], how='left')
+        # data = pd.merge(data, self.user_product_views, on=['user_id', 'product'], how='left')
+        # data = pd.merge(data, self.user_category_ctr, on=['user_id', 'product_category_1'], how='left')
+        # data = pd.merge(data, self.user_category_views, on=['user_id', 'product_category_1'], how='left')
 
-        user_features.fillna(0, inplace=True)  # Fill NaN (for users with no views) with 0
+        data.fillna(0, inplace=True)  # Fill NaN (for users with no views) with 0
 
-        return user_features
+        return data
 
     def create_campaign_features(self, data, is_train):
         if is_train:
-            self.campaign_ctr = data.groupby('campaign_id')['is_click'].mean().rename('campaign_ctr')
-            self.campaign_clicks = data.groupby('campaign_id')['is_click'].sum().rename('campaign_clicks')
+            # Calculate campaign-specific clicks and views
+            campaign_clicks = data.groupby('campaign_id')['is_click'].sum().rename('campaign_clicks')
             self.campaign_views = data.groupby('campaign_id')['session_id'].count().rename('campaign_views')
-            self.campaign_features = pd.concat([self.campaign_ctr, self.campaign_clicks, self.campaign_views], axis=1).reset_index()
-            self.campaign_product_ctr = data.groupby(['campaign_id', 'product'])['is_click'].mean().rename('product_ctr').reset_index()
-            self.campaign_product_clicks = data.groupby(['campaign_id', 'product'])['is_click'].sum().rename('product_clicks').reset_index()
-            self.campaign_product_views = data.groupby(['campaign_id', 'product'])['session_id'].count().rename('campaign_product_views').reset_index()
-            self.campaign_category_views = data.groupby(['campaign_id', 'product_category_1'])['session_id'].count().rename('campaign_category_views').reset_index()
 
-        # Merge features
-        campaign_features = pd.merge(data, self.campaign_features, on='campaign_id', how='left')
-        campaign_features = pd.merge(campaign_features, self.campaign_product_ctr, on=['campaign_id', 'product'], how='left')
-        campaign_features = pd.merge(campaign_features, self.campaign_product_clicks, on=['campaign_id', 'product'], how='left')
-        campaign_features = pd.merge(campaign_features, self.campaign_product_views, on=['campaign_id', 'product'], how='left')
-        campaign_features = pd.merge(campaign_features, self.campaign_category_views, on=['campaign_id', 'product_category_1'], how='left')
+            # Calculate smoothed campaign CTR
+            self.campaign_ctr = ((campaign_clicks + self.alpha * self.global_ctr) / (self.campaign_views + self.alpha)).rename('campaign_ctr')
 
-        campaign_features.fillna(0, inplace=True)
+            # # Calculate campaign-product-specific clicks and views
+            # campaign_product_clicks = data.groupby(['campaign_id', 'product'])['is_click'].sum().rename('product_clicks').reset_index()
+            # self.campaign_product_views = data.groupby(['campaign_id', 'product'])['session_id'].count().rename('product_views').reset_index()
+            #
+            # # Calculate smoothed campaign-product CTR
+            # self.campaign_product_ctr = ((campaign_product_clicks['product_clicks'] + self.alpha * self.global_ctr) / (self.campaign_product_views['product_views'] + self.alpha)).rename('campaign_product_ctr')
 
-        return campaign_features
+            # Merge features
+        data = pd.merge(data, self.campaign_ctr, on='campaign_id', how='left')
+        data = pd.merge(data, self.campaign_views, on='campaign_id', how='left')
+        # data = pd.merge(data, self.campaign_product_ctr, on=['campaign_id', 'product'], how='left')
+        # data = pd.merge(data, self.campaign_product_views, on=['campaign_id', 'product'], how='left')
+        data.fillna(0, inplace=True)  # Fill NaN with 0
+
+        return data
 
     def create_product_features(self, data, is_train):
         if is_train:
-            self.product_ctr = data.groupby('product')['is_click'].mean().rename('product_ctr')
-            self.product_clicks = data.groupby('product')['is_click'].sum().rename('product_clicks')
-            self.product_views = data.groupby('product')['session_id'].count().rename('product_views')
-            self.product_features = pd.concat([self.product_ctr, self.product_clicks, self.product_views], axis=1).reset_index()
-            self.product_category_ctr = data.groupby(['product', 'product_category_1'])['is_click'].mean().rename('category_ctr').reset_index()
-            self.product_category_clicks = data.groupby(['product', 'product_category_1'])['is_click'].sum().rename('category_clicks').reset_index()
-            self.product_category_views = data.groupby(['product', 'product_category_1'])['session_id'].count().rename('product_category_views').reset_index()
-            self.product_user_views = data.groupby(['product', 'user_id'])['session_id'].count().rename('product_user_views').reset_index()
+            # Calculate campaign-specific clicks and views
+            campaign_clicks = data.groupby('campaign_id')['is_click'].sum().rename('campaign_clicks')
+            self.campaign_views = data.groupby('campaign_id')['session_id'].count().rename('campaign_views')
 
-        # Merge features
-        product_features = pd.merge(data, self.product_features, on='product', how='left')
-        product_features = pd.merge(product_features, self.product_category_ctr, on=['product', 'product_category_1'], how='left')
-        product_features = pd.merge(product_features, self.product_category_clicks, on=['product', 'product_category_1'], how='left')
-        product_features = pd.merge(product_features, self.product_category_views, on=['product', 'product_category_1'], how='left')
-        product_features = pd.merge(product_features, self.product_user_views, on=['product', 'user_id'], how='left')
+            # Calculate smoothed campaign CTR
+            self.campaign_ctr = ((campaign_clicks + self.alpha * self.global_ctr) / (self.campaign_views + self.alpha)).rename('campaign_ctr')
 
-        product_features.fillna(0, inplace=True)
+            # Calculate campaign-product-specific clicks and views
+            # campaign_product_clicks = data.groupby(['campaign_id', 'product'])['is_click'].sum().rename('product_clicks').reset_index()
+            # self.campaign_product_views = data.groupby(['campaign_id', 'product'])['session_id'].count().rename('product_views').reset_index()
+            #
+            # # Calculate smoothed campaign-product CTR
+            # self.campaign_product_ctr = ((campaign_product_clicks['product_clicks'] + self.alpha * self.global_ctr) / (self.campaign_product_views['product_views'] + self.alpha)).rename('campaign_product_ctr')
 
-        return product_features
+            # Merge features
+        data = pd.merge(data, self.campaign_ctr, on='campaign_id', how='left')
+        data = pd.merge(data, self.campaign_views, on='campaign_id', how='left')
+        # data = pd.merge(data, self.campaign_product_ctr, on=['campaign_id', 'product'], how='left')
+        # data = pd.merge(data, self.campaign_product_views, on=['campaign_id', 'product'], how='left')
+
+        data.fillna(0, inplace=True)  # Fill NaN with 0
+
+        return data
 
     def fill_user_missing_values(self, data):
         # 1. Identify users with at least one NaN in the specified columns

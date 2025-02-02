@@ -12,4 +12,4 @@ class Predictor:
         return self.model.predict(X)
 
     def save_results(self, predictions, file_path):
-        np.savetxt(file_path, predictions, delimiter=',', fmt='%d')
+        predictions.to_csv(file_path, index=False)

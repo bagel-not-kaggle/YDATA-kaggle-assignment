@@ -40,7 +40,8 @@ if __name__ == '__main__':
 
     predictor = Predictor(model_path)
     predictions = predictor.predict(X_val)
-    predictor.save_results(predictions, result_path)
+    validation_data_with_predictions = pd.concat([validation_data, pd.Series(predictions, name='predictions')], axis=1)
+    predictor.save_results(validation_data_with_predictions, result_path)
 
     # Evaluate the result
     f1 = f1_score(y_val, predictions)
