@@ -436,7 +436,7 @@ class DataPreprocessor:
     """
     
     def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
-        df_train = self.drop_completely_empty(df)
+        df_train = self.drop_completely_empty(df_train)
 
         df_train = self.drop_session_id_or_is_click(df_train)
 
@@ -446,14 +446,13 @@ class DataPreprocessor:
 
         df = self.concat_train_test(df_train, df_test)
 
-        self.logger.info(f"Total number of missing values in the joint dataset: {df.isna().sum().sum()}")
+        self.logger.info(f"Total number of missing values in the joint dataset: {df.isna().sum()}")
         df = self.deterministic_fill(df)
-        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum().sum()}")
+        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum()}")
 
         df_train, df_test = self.split_to_train_test(df)
-        if "DateTime" in df_clean.columns:
-            df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
-            df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
+        df_train["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
+        df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
         if self.remove_outliers:
             df_train = self.remove_outliers(df_train)
