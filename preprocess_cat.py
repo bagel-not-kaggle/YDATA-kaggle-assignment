@@ -3,7 +3,9 @@ import pandas as pd
 from pathlib import Path
 import logging
 from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.preprocessing import TargetEncoder
 import numpy as np
+from typing import Tuple
 
 class DataPreprocessor:
     def __init__(
@@ -256,7 +258,28 @@ class DataPreprocessor:
         test_df = df[df.is_click ==-1]
         return train_df, test_df
 
+    def add_target_encoding(self, df_train: pd.DataFrame, df_test: pd.DataFrame, cols_to_target_encode) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        # Ensure we're working with copies
+        df_train = df_train.copy()
+        df_test = df_test.copy()
+        
+        # Extract the columns to encode from both train and test dataframes
+        df_train_te = df_train[cols_to_target_encode].copy()
+        df_test_te = df_test[cols_to_target_encode].copy()
 
+        # Create and fit the TargetEncoder on the training set
+        te = TargetEncoder(categories='auto', target_type='binary',
+                        smooth='auto', cv=5, shuffle=True, random_state=42)
+        
+        df_train_te = te.fit_transform(df_train_te, df_train["is_click"])
+        df_test_te = te.transform(df_test_te)
+            
+        # Append the encoded features back to the original dataframes
+        for i, orig_col in enumerate(cols_to_target_encode):
+            df_train.loc[:, f"{orig_col}_te"] = df_train_te[:, i]
+            df_test.loc[:, f"{orig_col}_te"] = df_test_te[:, i]
+
+        return df_train, df_test
 
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
@@ -367,7 +390,6 @@ class DataPreprocessor:
     """
     def feature_generation(self, df: pd.DataFrame):
         df = df.copy()
-
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
         df['Hour'] = df['DateTime'].dt.hour
@@ -418,7 +440,7 @@ class DataPreprocessor:
             df = pd.get_dummies(df, columns=columns_to_d)
 
         return df
-    
+       
     """
     ╔═╗┬─┐┌─┐┌─┐┬─┐┌─┐┌─┐┌─┐┌─┐┌─┐
     ╠═╝├┬┘├┤ ├─┘├┬┘│ ││  ├┤ └─┐└─┐
@@ -444,7 +466,7 @@ class DataPreprocessor:
         df = self.deterministic_fill(df)
         self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum().sum()}")
 
-        df_train, df_test = self.split_to_train_test(df)
+        df_train, df_test = self.split_to_train_test(df)   
         # if "DateTime" in df_clean.columns:
         #     df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
 
@@ -456,13 +478,20 @@ class DataPreprocessor:
 
         # df_clean = self.feature_generation(df_clean)
 
+        cols_to_target_encode = [c for c in df_train.columns if c not in ["session_id", "DateTime", "is_click"]]
+
+        df_train, df_test = self.add_target_encoding(df_train, df_test, cols_to_target_encode)
+
         # X = df_clean.drop(columns=["is_click"])
         # y = df_clean["is_click"]
 
         # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         # # Create stratified folds for train set
+
         # skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        # self.feature_generation(df_train)
+
         # fold_datasets = []
 
         # for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
