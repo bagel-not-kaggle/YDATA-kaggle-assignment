@@ -373,7 +373,7 @@ class DataPreprocessor:
 
     """
 
-    def smooth_ctr(data, target_col, alpha=10):
+    def smooth_ctr(self,data, target_col, alpha=10):
         """Smooths the CTR by adding a prior."""
         # 1) Compute clicks and views
         clicks = data.groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
@@ -404,7 +404,7 @@ class DataPreprocessor:
         self.logger.info(f'missing values in columns: {colls_to_check} before: {df[colls_to_check].isna().sum()}')
         df[colls_to_check] = df[colls_to_check].fillna(df[colls_to_check].mean())
         self.logger.info(f'missing values in columns: {colls_to_check} after: {df[colls_to_check].isna().sum()}')
-        
+
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
         df['Hour'] = df['DateTime'].dt.hour
