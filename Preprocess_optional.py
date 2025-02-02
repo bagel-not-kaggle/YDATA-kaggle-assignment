@@ -372,9 +372,39 @@ class DataPreprocessor:
     ╚  └─┘┴ ┴ ┴ └─┘┴└─└─┘  ╚═╝└─┘┘└┘└─┘┴└─┴ ┴ ┴ ┴└─┘┘└┘
 
     """
+
+    def smooth_ctr(data, target_col, alpha=10):
+        """Smooths the CTR by adding a prior."""
+        # 1) Compute clicks and views
+        clicks = data.groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
+        views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
+        
+        # 2) Global CTR
+        global_ctr = data['is_click'].mean()
+        
+        # 3) Calculate smoothed CTR
+        #    (clicks + alpha * global_ctr) / (views + alpha)
+        ctr = ((clicks + alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctr')
+        
+        # 4) Merge back into data
+        data = data.merge(ctr, how='left', on=target_col)
+        
+        # 5) Fill missing CTR with global CTR
+        data[f'{target_col}_ctr'].fillna(global_ctr, inplace=True)
+        
+        return data
+
+
     def feature_generation(self, df: pd.DataFrame):
         df = df.copy()
-
+        df = self.smooth_ctr(df, "user_id")
+        df = self.smooth_ctr(df, "product")
+        df = self.smooth_ctr(df, "campaign_id")
+        colls_to_check = ['user_id_ctr', 'product_ctr', 'campaign_id_ctr']
+        self.logger.info(f'missing values in columns: {colls_to_check} before: {df[colls_to_check].isna().sum()}')
+        df[colls_to_check] = df[colls_to_check].fillna(df[colls_to_check].mean())
+        self.logger.info(f'missing values in columns: {colls_to_check} after: {df[colls_to_check].isna().sum()}')
+        
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
         df['Hour'] = df['DateTime'].dt.hour
@@ -436,7 +466,7 @@ class DataPreprocessor:
     """
     
     def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
-        df_train = self.drop_completely_empty(df_train)
+        df_train = self.drop_completely_empty(df_train).copy()
 
         df_train = self.drop_session_id_or_is_click(df_train)
 
