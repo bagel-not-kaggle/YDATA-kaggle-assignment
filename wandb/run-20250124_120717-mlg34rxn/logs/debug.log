@@ -1,0 +1,104 @@
+2025-01-24 12:07:17,178 INFO    MainThread:51472 [wandb_setup.py:_flush():68] Current SDK version is 0.19.4
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_setup.py:_flush():68] Configure stats pid to 51472
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_setup.py:_flush():68] Loading settings from /Users/omer.zeira/.config/wandb/settings
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_setup.py:_flush():68] Loading settings from /Users/omer.zeira/PycharmProjects/DSiP/wandb/settings
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_setup.py:_flush():68] Loading settings from environment variables
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_init.py:setup_run_log_directory():624] Logging user logs to /Users/omer.zeira/PycharmProjects/DSiP/wandb/run-20250124_120717-mlg34rxn/logs/debug.log
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_init.py:setup_run_log_directory():625] Logging internal logs to /Users/omer.zeira/PycharmProjects/DSiP/wandb/run-20250124_120717-mlg34rxn/logs/debug-internal.log
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_init.py:init():743] calling init triggers
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_init.py:init():748] wandb.init called with sweep_config: {}
+config: {'hidden_layer_sizes': [32, 64], 'kernel_sizes': [3], 'activation': 'ReLU', 'pool_sizes': [2], 'dropout': 0.5, 'num_classes': 10}
+2025-01-24 12:07:17,179 INFO    MainThread:51472 [wandb_init.py:init():776] starting backend
+2025-01-24 12:07:17,409 INFO    MainThread:51472 [wandb_init.py:init():780] sending inform_init request
+2025-01-24 12:07:17,433 INFO    MainThread:51472 [backend.py:_multiprocessing_setup():97] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2025-01-24 12:07:17,433 INFO    MainThread:51472 [wandb_init.py:init():795] backend started and connected
+2025-01-24 12:07:17,435 INFO    MainThread:51472 [wandb_init.py:init():888] updated telemetry
+2025-01-24 12:07:17,459 INFO    MainThread:51472 [wandb_init.py:init():915] communicating run to backend with 90.0 second timeout
+2025-01-24 12:07:18,160 INFO    MainThread:51472 [wandb_init.py:init():967] starting run threads in backend
+2025-01-24 12:07:18,240 INFO    MainThread:51472 [wandb_run.py:_console_start():2409] atexit reg
+2025-01-24 12:07:18,240 INFO    MainThread:51472 [wandb_run.py:_redirect():2259] redirect: wrap_raw
+2025-01-24 12:07:18,242 INFO    MainThread:51472 [wandb_run.py:_redirect():2324] Wrapping output streams.
+2025-01-24 12:07:18,242 INFO    MainThread:51472 [wandb_run.py:_redirect():2349] Redirects installed.
+2025-01-24 12:07:18,243 INFO    MainThread:51472 [wandb_init.py:init():1009] run started, returning control to user process
+2025-01-24 12:07:22,188 INFO    MainThread:51472 [retry.py:__call__():172] Retry attempt failed:
+Traceback (most recent call last):
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/util/ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/util/ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/ssl.py", line 1046, in _create
+    self.do_handshake()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/ssl.py", line 1317, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/requests/adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/urllib3/util/retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.wandb.ai', port=443): Max retries exceeded with url: /graphql (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/wandb/sdk/lib/retry.py", line 131, in __call__
+    result = self._call_fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/wandb/sdk/internal/internal_api.py", line 393, in execute
+    return self.client.execute(*args, **kwargs)  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/wandb/vendor/gql-0.2.0/wandb_gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/wandb/vendor/gql-0.2.0/wandb_gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/wandb/sdk/lib/gql_request.py", line 58, in execute
+    request = self.session.post(self.url, **post_args)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/requests/sessions.py", line 637, in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/requests/adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='api.wandb.ai', port=443): Max retries exceeded with url: /graphql (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+2025-01-24 12:09:20,855 WARNING MsgRouterThr:51472 [router.py:message_loop():75] message_loop has been closed

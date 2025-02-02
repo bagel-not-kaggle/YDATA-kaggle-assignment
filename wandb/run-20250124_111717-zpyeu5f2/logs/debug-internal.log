@@ -1,0 +1,16 @@
+{"time":"2025-01-24T11:17:18.264434+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"/Users/omer.zeira/PycharmProjects/DSiP/wandb/run-20250124_111717-zpyeu5f2/logs/debug-core.log"}
+{"time":"2025-01-24T11:17:18.376899+02:00","level":"INFO","msg":"created new stream","id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:18.376948+02:00","level":"INFO","msg":"stream: started","id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:18.376997+02:00","level":"INFO","msg":"handler: started","stream_id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:18.377143+02:00","level":"INFO","msg":"sender: started","stream_id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:18.377166+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:18.955589+02:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-24T11:17:54.649694+02:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-24T11:17:54.6506+02:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-24T11:17:55.652728+02:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading artifact trained_model","runtime_seconds":1.015299083},{"desc":"uploading config.yaml","runtime_seconds":0.245438625,"progress":"601B/601B"}],"total_operations":2}}
+{"time":"2025-01-24T11:17:57.611467+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-24T11:17:59.107721+02:00","level":"INFO","msg":"stream: closing","id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:59.107757+02:00","level":"INFO","msg":"handler: closed","stream_id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:59.107783+02:00","level":"INFO","msg":"sender: closed","stream_id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:59.107774+02:00","level":"INFO","msg":"writer: Close: closed","stream_id":"zpyeu5f2"}
+{"time":"2025-01-24T11:17:59.108052+02:00","level":"INFO","msg":"stream: closed","id":"zpyeu5f2"}

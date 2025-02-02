@@ -1,0 +1,7 @@
+{"time":"2025-01-24T12:07:17.437733+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"/Users/omer.zeira/PycharmProjects/DSiP/wandb/run-20250124_120717-mlg34rxn/logs/debug-core.log"}
+{"time":"2025-01-24T12:07:17.547637+02:00","level":"INFO","msg":"created new stream","id":"mlg34rxn"}
+{"time":"2025-01-24T12:07:17.547681+02:00","level":"INFO","msg":"stream: started","id":"mlg34rxn"}
+{"time":"2025-01-24T12:07:17.547951+02:00","level":"INFO","msg":"sender: started","stream_id":"mlg34rxn"}
+{"time":"2025-01-24T12:07:17.547966+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"mlg34rxn"}
+{"time":"2025-01-24T12:07:17.548104+02:00","level":"INFO","msg":"handler: started","stream_id":"mlg34rxn"}
+{"time":"2025-01-24T12:07:18.163182+02:00","level":"INFO","msg":"Starting system monitor"}

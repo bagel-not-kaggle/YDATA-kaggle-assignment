@@ -1,0 +1,43 @@
+{
+  "os":  "macOS-14.6.1-arm64-arm-64bit",
+  "python":  "CPython 3.12.0",
+  "startedAt":  "2025-01-24T09:17:18.261452Z",
+  "program":  "/Users/omer.zeira/PycharmProjects/DSiP/train.py",
+  "codePath":  "train.py",
+  "git":  {
+    "remote":  "https://OmerBamba:@github.com/shaye3/YDATA-kaggle-assignment.git",
+    "commit":  "d9649fbb6f5d050a9eb6d56ee63254a8667d7539"
+  },
+  "root":  "/Users/omer.zeira/PycharmProjects/DSiP",
+  "host":  "omer-ze-4JN5",
+  "executable":  "/Users/omer.zeira/PycharmProjects/DSiP/venv/bin/python",
+  "codePathLocal":  "train.py",
+  "cpu_count":  12,
+  "cpu_count_logical":  12,
+  "disk":  {
+    "/":  {
+      "total":  "494384795648",
+      "used":  "321562017792"
+    },
+    "/System/Volumes/Data":  {
+      "total":  "494384795648",
+      "used":  "321562017792"
+    }
+  },
+  "memory":  {
+    "total":  "38654705664"
+  },
+  "cpu":  {
+    "count":  12,
+    "countLogical":  12
+  },
+  "apple":  {
+    "name":  "Apple M3 Pro",
+    "ecpuCores":  6,
+    "pcpuCores":  6,
+    "gpuCores":  18,
+    "memoryGb":  36,
+    "swapTotalBytes":  "11811160064",
+    "ramTotalBytes":  "38654705664"
+  }
+}

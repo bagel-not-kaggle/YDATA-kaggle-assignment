@@ -1,0 +1,16 @@
+{"time":"2025-01-24T11:14:16.002961+02:00","level":"INFO","msg":"stream: starting","core version":"0.19.4","symlink path":"/Users/omer.zeira/PycharmProjects/DSiP/wandb/run-20250124_111415-grebg0ke/logs/debug-core.log"}
+{"time":"2025-01-24T11:14:16.113537+02:00","level":"INFO","msg":"created new stream","id":"grebg0ke"}
+{"time":"2025-01-24T11:14:16.113589+02:00","level":"INFO","msg":"stream: started","id":"grebg0ke"}
+{"time":"2025-01-24T11:14:16.11364+02:00","level":"INFO","msg":"writer: Do: started","stream_id":"grebg0ke"}
+{"time":"2025-01-24T11:14:16.113622+02:00","level":"INFO","msg":"handler: started","stream_id":"grebg0ke"}
+{"time":"2025-01-24T11:14:16.113829+02:00","level":"INFO","msg":"sender: started","stream_id":"grebg0ke"}
+{"time":"2025-01-24T11:14:16.726998+02:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-24T11:14:18.612692+02:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-24T11:14:18.613061+02:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-24T11:14:19.542186+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-24T11:14:19.619128+02:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading summary, console lines 1-16","runtime_seconds":0.076735667}],"total_operations":1}}
+{"time":"2025-01-24T11:14:20.984154+02:00","level":"INFO","msg":"stream: closing","id":"grebg0ke"}
+{"time":"2025-01-24T11:14:20.984198+02:00","level":"INFO","msg":"handler: closed","stream_id":"grebg0ke"}
+{"time":"2025-01-24T11:14:20.98423+02:00","level":"INFO","msg":"sender: closed","stream_id":"grebg0ke"}
+{"time":"2025-01-24T11:14:20.98422+02:00","level":"INFO","msg":"writer: Close: closed","stream_id":"grebg0ke"}
+{"time":"2025-01-24T11:14:20.984494+02:00","level":"INFO","msg":"stream: closed","id":"grebg0ke"}

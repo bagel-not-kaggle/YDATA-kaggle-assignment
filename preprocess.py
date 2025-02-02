@@ -1,87 +1,125 @@
 import pandas as pd
+import numpy as np
+from pathlib import Path
+import logging
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-import numpy as np
-from pathlib import Path
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
 
 class Preprocessor:
     def __init__(self):
-        self.scaler = StandardScaler()
-        self.ohe = OneHotEncoder(handle_unknown='ignore', sparse=False)
+        self.pipeline = None  # Will hold the fitted ColumnTransformer
+        logger.info("Preprocessor initialized.")
 
-    def load_data(data_dir: Path) -> pd.DataFrame:
-        return pd.read_csv(data_dir)
+    @staticmethod
+    def load_data(data_path: Path) -> pd.DataFrame:
+        """Load data from a CSV file."""
+        logger.info(f"Loading data from {data_path}...")
+        return pd.read_csv(data_path)
 
-    def drop_nan(data: pd.DataFrame, selected_columns: list[str]) -> pd.DataFrame:
+    def drop_nan(self, data: pd.DataFrame, selected_columns: list[str]) -> pd.DataFrame:
+        """Drop rows with NaN values in selected columns."""
+        logger.info("Dropping rows with NaN values...")
         mask = data[selected_columns].notna().all(axis=1)
         return data[mask]
 
-    def drop_cloumns(data: pd.DataFrame, drop_columns: list[str]) -> pd.DataFrame:
+    def drop_columns(self, data: pd.DataFrame, drop_columns: list[str]) -> pd.DataFrame:
+        """Drop specified columns from the DataFrame."""
+        logger.info(f"Dropping columns: {drop_columns}...")
         return data.drop(columns=drop_columns, errors='ignore')
 
-    def fill_nan_users(data: pd.DataFrame) -> pd.DataFrame:
-        labels = ['gender', 'age_level', 'user_group_id']
-        filled_features = (data.groupby('user_id')[labels]
-                           .transform(lambda x: x.ffill().bfill())
-                           .infer_objects(copy=False))  # Add infer_objects
-        data[labels] = filled_features
-
-    def feature_engineering(self, data):
-        # Example: Extract date-related features
-        data['hour'] = pd.to_datetime(data['datetime']).dt.hour
-        data['day_of_week'] = pd.to_datetime(data['datetime']).dt.dayofweek
-        data['month'] = pd.to_datetime(data['datetime']).dt.month
-
-        # Drop original datetime column
-        data.drop(['datetime'], axis=1, inplace=True)
-
-        # Interaction features (example)
-        data['product_user_depth'] = data['product_category_1'] * data['user_depth']
-
+    def fill_nan_users(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Fill NaN values in user-related features using forward and backward fill."""
+        logger.info("Filling NaN values for user-related features...")
+        user_cols = ['gender', 'age_level', 'user_group_id']
+        if 'user_id' in data.columns:
+            filled = data.groupby('user_id')[user_cols].transform(lambda x: x.ffill().bfill())
+            data[user_cols] = filled
         return data
 
-    def feature_selection(self, data):
-        # Drop irrelevant or highly correlated columns
+    def feature_engineering(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply feature engineering to extract time-based features and create new interactions."""
+        logger.info("Applying feature engineering...")
+        if 'DateTime' in data.columns:
+            dt = pd.to_datetime(data['DateTime'])
+            data['hour'] = dt.dt.hour
+            data['day_of_week'] = dt.dt.dayofweek
+            data['month'] = dt.dt.month
+            data.drop(['DateTime'], axis=1, inplace=True)
+        # Example interaction: adjust these if your data doesn't have these columns.
+        if 'product_category_1' in data.columns and 'user_depth' in data.columns:
+            data['product_user_depth'] = data['product_category_1'] * data['user_depth']
+        return data
+
+    def feature_selection(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Select features by dropping unnecessary columns."""
+        logger.info("Applying feature selection...")
         drop_cols = ['session_id', 'user_id', 'campaign_id', 'webpage_id']
-        data = data.drop(columns=drop_cols, errors='ignore')
+        return data.drop(columns=drop_cols, errors='ignore')
 
-        return data
+    def _build_and_fit_pipeline(self, X: pd.DataFrame):
+        """Create and fit a ColumnTransformer on the numeric and categorical features."""
+        numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
+        categorical_features = X.select_dtypes(include=['object']).columns.tolist()
 
-    def preprocess_data(self, data):
-        # drop nan values
-        selected_columns = ['session_id', 'DateTime', 'user_id', 'product', 'campaign_id', 'webpage_id', 'is_click']
-        data = self.drop_nan(data, selected_columns)
+        logger.info(f"Fitting pipeline on numeric features: {numeric_features} and categorical features: {categorical_features}.")
 
-        # Drop columns with high percentage of missing values
-        drop_columns = ['city_development_index']
-        data = self.drop_cloumns(data, drop_columns)
+        self.pipeline = ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), numeric_features),
+                ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)
+            ]
+        )
+        return self.pipeline.fit_transform(X)
 
-        #fill user nan values
+    def preprocess_data(self, data: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
+        """
+        Preprocess the raw data:
+         - Clean data (drop NaNs, fill user-related missing values)
+         - Apply feature engineering and selection
+         - Fit the transformation pipeline and split into training and testing sets.
+        """
+        logger.info("Starting data preprocessing...")
+
+        # Define columns that must be non-null
+        required_columns = ['session_id', 'DateTime', 'user_id', 'product', 'campaign_id', 'webpage_id', 'is_click']
+        data = self.drop_nan(data, required_columns)
+        data = self.drop_columns(data, ['city_development_index'])
         data = self.fill_nan_users(data)
-
-        # Apply feature engineering
         data = self.feature_engineering(data)
-
-        # Apply feature selection
         data = self.feature_selection(data)
 
         # Separate features and target
+        if 'is_click' not in data.columns:
+            logger.error("Target column 'is_click' is missing from the data!")
+            raise ValueError("Missing 'is_click' column.")
         X = data.drop('is_click', axis=1)
         y = data['is_click']
 
-        # Define numerical and categorical features
-        numeric_features = X.select_dtypes(include=[np.number]).columns
-        categorical_features = X.select_dtypes(include=['object']).columns
+        # Build and fit the transformation pipeline
+        X_processed = self._build_and_fit_pipeline(X)
 
-        # Preprocessing pipeline
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', self.scaler, numeric_features),
-                ('cat', self.ohe, categorical_features)
-            ]
-        )
+        logger.info("Preprocessing completed. Splitting data into train and test sets.")
+        return train_test_split(X_processed, y, test_size=test_size, random_state=random_state)
 
-        X_processed = preprocessor.fit_transform(X)
-        return train_test_split(X_processed, y, test_size=0.2, random_state=42)
+    def transform(self, data: pd.DataFrame):
+        """
+        Transform new data using the already fitted pipeline.
+        Make sure the new data goes through the same cleaning, engineering, and selection steps.
+        """
+        logger.info("Transforming new data for prediction...")
+        data = self.fill_nan_users(data)
+        if 'DateTime' in data.columns:
+            data = self.feature_engineering(data)
+        data = self.feature_selection(data)
+
+        if self.pipeline is None:
+            logger.error("The transformation pipeline has not been fitted yet.")
+            raise ValueError("Call preprocess_data on training data before transforming new data.")
+
+        return self.pipeline.transform(data)

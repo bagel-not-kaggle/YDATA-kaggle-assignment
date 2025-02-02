@@ -1,24 +1,28 @@
-from preprocess_old import Preprocessor
-from train import Trainer
-from predict import Predictor
-import os
+from invoke import task
+import logging
 
-# Define paths
-data_path = "data/marketing_campaign.csv"
-model_path = "model/trained_model.pkl"
-result_path = "result/predictions.csv"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
-# Preprocessing
-preprocessor = Preprocessor()
-data = preprocessor.load_data(data_path)
-X_train, X_test, y_train, y_test = preprocessor.preprocess_data(data)
+@task
+def pipeline(c):
+    """
+    Runs the preprocessing and training scripts sequentially.
+    """
+    logger.info("Running preprocessing...")
+    c.run("python preprocess.py", pty=True)
+    logger.info("Preprocessing completed.")
 
-# Training
-trainer = Trainer()
-trainer.train_model(X_train, y_train)
-trainer.save_model(model_path)
+    logger.info("Running training...")
+    c.run("python train.py", pty=True)
+    logger.info("Training completed.")
 
-# Prediction
-predictor = Predictor(model_path)
-predictions = predictor.predict(X_test)
-predictor.save_results(predictions, result_path)
+    logger.info("Pipeline finished successfully!")
+
+@task
+def serve(c):
+    """
+    Starts the FastAPI server
+    """
+    logger.info("Starting API server...")
+    c.run("uvicorn app.main:app --reload", pty=True)

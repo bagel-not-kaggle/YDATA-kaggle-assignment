@@ -5,4 +5,12 @@ jupyter
 matplotlib
 seaborn
 plotly
-StandardScaler
+invoke
+fastapi
+fastapi[standard]
+pydantic
+uvicorn
+joblib
+numpy
+streamlit
+watchdog

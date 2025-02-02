@@ -1,0 +1,13 @@
+2025-01-24 11:17:19,032 - __main__ - INFO - Training the model...
+2025-01-24 11:17:19,142 - __main__ - INFO - Model training completed.
+2025-01-24 11:17:19,142 - __main__ - INFO - Evaluating the model...
+2025-01-24 11:17:19,146 - __main__ - INFO - Accuracy: 0.8800
+2025-01-24 11:17:19,146 - __main__ - INFO - Precision: 0.9368
+2025-01-24 11:17:19,146 - __main__ - INFO - Recall: 0.8318
+{'accuracy': 0.88, 'precision': 0.9368421052631579, 'recall': 0.8317757009345794}
+2025-01-24 11:17:19,146 - __main__ - INFO - Saving the model to model.pkl...
+2025-01-24 11:17:19,150 - __main__ - INFO - Model saved successfully.
+[34m[1mwandb[0m: Network error (SSLError), entering retry loop.
+2025-01-24 11:17:54,642 - __main__ - INFO - Model logged to wandb as an artifact.
+2025-01-24 11:17:54,642 - __main__ - INFO - Validating the saved model...
+2025-01-24 11:17:54,647 - __main__ - INFO - Model validation completed.

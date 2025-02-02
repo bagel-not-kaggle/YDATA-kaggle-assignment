@@ -1,0 +1,17 @@
+2025-01-24 11:14:16,806 - tasks - INFO - Running preprocessing...
+2025-01-24 11:14:17,412 - tasks - INFO - Preprocessing completed.
+2025-01-24 11:14:17,412 - tasks - INFO - Running training...
+2025-01-24 11:14:18,392 - __main__ - INFO - Trainer initialized with RandomForestClassifier.
+2025-01-24 11:14:18,392 - __main__ - INFO - Training the model...
+2025-01-24 11:14:18,483 - __main__ - INFO - Model training completed.
+2025-01-24 11:14:18,483 - __main__ - INFO - Evaluating the model...
+2025-01-24 11:14:18,487 - __main__ - ERROR - Error during model evaluation: You must call wandb.init() before wandb.log()
+Traceback (most recent call last):
+  File "/Users/omer.zeira/PycharmProjects/DSiP/train.py", line 135, in <module>
+    metrics = trainer.evaluate_model(X_test, y_test)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omer.zeira/PycharmProjects/DSiP/train.py", line 59, in evaluate_model
+    wandb.log({
+  File "/Users/omer.zeira/PycharmProjects/DSiP/venv/lib/python3.12/site-packages/wandb/sdk/lib/preinit.py", line 36, in preinit_wrapper
+    raise wandb.Error(f"You must call wandb.init() before {name}()")
+wandb.errors.errors.Error: You must call wandb.init() before wandb.log()

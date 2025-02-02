@@ -1,0 +1,15 @@
+{
+  "os":  "macOS-14.6.1-arm64-arm-64bit",
+  "python":  "CPython 3.12.0",
+  "startedAt":  "2025-01-24T09:59:51.576423Z",
+  "program":  "/Users/omer.zeira/PycharmProjects/DSiP/test-wandb.py",
+  "codePath":  "test-wandb.py",
+  "git":  {
+    "remote":  "https://OmerBamba:@github.com/shaye3/YDATA-kaggle-assignment.git",
+    "commit":  "d9649fbb6f5d050a9eb6d56ee63254a8667d7539"
+  },
+  "root":  "/Users/omer.zeira/PycharmProjects/DSiP",
+  "host":  "omer-ze-4JN5",
+  "executable":  "/Users/omer.zeira/PycharmProjects/DSiP/venv/bin/python",
+  "codePathLocal":  "test-wandb.py"
+}
