@@ -451,7 +451,7 @@ class DataPreprocessor:
         self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum()}")
 
         df_train, df_test = self.split_to_train_test(df)
-        df_train["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
+        df_train["DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
         df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
         if self.remove_outliers:
@@ -459,14 +459,14 @@ class DataPreprocessor:
             df_test = self.remove_outliers(df_test)
 
         if self.fillna:
-            df_clean = self.fill_missing_values(df_clean)
+            df_train = self.fill_missing_values(df_train)
             df_test = self.fill_missing_values(df_test)
 
-        df_clean = self.feature_generation(df_train)
+        df_train = self.feature_generation(df_train)
         df_test = self.feature_generation(df_test)
 
-        X = df_clean.drop(columns=["is_click"])
-        y = df_clean["is_click"]
+        X = df_train.drop(columns=["is_click"])
+        y = df_train["is_click"]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -494,7 +494,7 @@ class DataPreprocessor:
         })
         self.logger.info("Created stratified folds for training data.")
 
-        return df_clean, X_train, X_test, y_train, y_test, fold_datasets, df_test
+        return df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test
     
     r"""
      ____                  
@@ -505,9 +505,9 @@ class DataPreprocessor:
                         
     """
 
-    def save_data(self, df_clean, X_train, X_test, y_train, y_test, fold_datasets, df_test):
+    def save_data(self, df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test):
         if self.save_as_pickle:
-            df_clean.to_pickle(self.output_path / "cleaned_data.pkl")
+            df_train.to_pickle(self.output_path / "cleaned_data_Maor.pkl")
             X_train.to_pickle(self.output_path / "X_train.pkl")
             X_test.to_pickle(self.output_path / "X_test.pkl")
             y_train.to_pickle(self.output_path / "y_train.pkl")
@@ -523,7 +523,7 @@ class DataPreprocessor:
 
             self.logger.info(f"Saved preprocessed data, train-test split, and folds as Pickle to {self.output_path}")
         else:
-            df_clean.to_csv(self.output_path / "cleaned_data.csv", index=False)
+            df_train.to_csv(self.output_path / "cleaned_data_Maor.csv", index=False)
             X_train.to_csv(self.output_path / "X_train.csv", index=False)
             X_test.to_csv(self.output_path / "X_test.csv", index=False)
             y_train.to_csv(self.output_path / "y_train.csv", index=False, header=True)
@@ -560,5 +560,5 @@ if __name__ == "__main__":
     )
 
     df_train,df_test = preprocessor.load_data(Path(args.csv_path))
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
-    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets,df_test)
+    df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
+    preprocessor.save_data(df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test)
