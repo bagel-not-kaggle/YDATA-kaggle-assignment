@@ -48,10 +48,10 @@ class DataPreprocessor:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
         df = pd.read_csv(csv_path)
-        X_test_external = pd.read_csv("data/raw/X_test_1st.csv")
+        df_test = pd.read_csv("data/raw/X_test_1st.csv")
         
         self.logger.info(f"Loading file from: {csv_path}")
-        return df, X_test_external
+        return df, df_test
     
     def remove_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         if "age_level" in df.columns:
@@ -67,18 +67,198 @@ class DataPreprocessor:
             
         return df
     
-    def ffill_bfill_target(self, df, columns, group_by_col="user_id"): # Change to mode, change rows with fault user_id filling
-        df_temp = df.copy()
-        if "DateTime" in df.columns:
-            df_temp = df_temp.sort_values("DateTime")
-        result = (
-            df_temp.groupby(group_by_col, observed=True)[columns]
-            .transform(lambda x: x.ffill().bfill())
-            .infer_objects(copy=False)
-        )
-        result = result.sample(frac=1)  # Shuffle rows
+    def drop_completely_empty(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''drop completely empty rows'''
+        df.dropna(how='all', inplace=True)
+        return df
+    
+    def drop_session_id_or_is_click(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''drop rows missing session_id or is_click'''
+        df.dropna(subset=["session_id","is_click"], inplace=True)
+        df.drop_duplicates(subset=["session_id"], inplace=True)
+        return df
 
-        return result
+    def decrease_test_user_group_id(self, df_test: pd.DataFrame) -> pd.DataFrame:
+        '''decrease user_group_id by 1 to align with training data'''
+        df_test["user_group_id"] = df_test["user_group_id"] - 1
+        return df_test
+
+    def replace_test_user_depth_to_training(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
+        '''replace (or fill) user_depth values in X_test according to the first
+         valid user_depth observed per user in X_train.'''
+        depth_mapping = (
+        df_train
+        .dropna(subset=["user_depth"])           
+        .groupby("user_id")["user_depth"]        
+        .first()                                 
+        .to_dict()                               
+        )
+
+        df_test["user_depth"] = (
+        df_test["user_id"].map(depth_mapping)
+        .fillna(df_test["user_depth"])
+        )
+        return df_test
+
+    def concat_train_test(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
+        '''concat df_train with df_test, with is_click = -1 as an indicator'''
+        df_test["is_click"] = np.full(df_test.shape[0], -1)
+        df = pd.concat([df_train, df_test], ignore_index=True)
+        return df
+    
+    # Function to infer missing values based on user_id
+    def infer_by_col(self, df: pd.DataFrame, target_col, key_col='user_id', mapping_df=None)-> pd.DataFrame:
+        """
+        Infers missing values in `target_col` based on a mapping from `key_col`.
+        
+        Parameters:
+            df (pd.DataFrame): The DataFrame containing the data.
+            target_col (str): The column to fill missing values in.
+            key_col (str): The column used as the key for mapping (default is 'user_id').
+        
+        Returns:
+            pd.DataFrame: The DataFrame with missing values in `target_col` filled.
+        """
+        # Use the entire DataFrame or the provided mapping DataFrame
+        if mapping_df is not None:
+            source_df = mapping_df
+        else:
+            source_df = df
+
+        # Create a dictionary mapping key_col to target_col, ignoring NaNs
+        mapping_dict = (
+            source_df.dropna(subset=[target_col])
+            .groupby(key_col)[target_col]
+            .first()  # Assumes there's only one unique value per key_col
+            .to_dict()
+        )
+        
+        # Map the key_col to target_col
+        mapped_values = df[key_col].map(mapping_dict)
+        
+        # Fill missing values in target_col
+        df[target_col] = df[target_col].fillna(mapped_values)
+        
+        return df
+
+    # Function to infer missing values based on group combinations
+    def infer_by_two_cols(self, df: pd.DataFrame, target_col, key_cols, mapping_df=None)-> pd.DataFrame:
+        """
+        Infers missing values in `target_col` based on a unique mapping from `group_cols`.
+        
+        Parameters:
+            df (pd.DataFrame): The DataFrame containing the data.
+            group_cols (list of str): The columns to group by for mapping.
+            target_col (str): The column to fill missing values in.
+            mapping_df (pd.DataFrame, optional): A pre-filtered DataFrame to build the mapping from.
+                                                If None, uses the entire DataFrame.
+        
+        Returns:
+            pd.DataFrame: The DataFrame with missing values in `target_col` filled.
+        """
+        # Use the entire DataFrame or the provided mapping DataFrame
+        if mapping_df is not None:
+            source_df = mapping_df
+        else:
+            source_df = df
+        
+        # Create a dictionary mapping group_cols to target_col, ignoring NaNs
+        mapping_dict = (
+            source_df.dropna(subset=[target_col])
+                    .groupby(key_cols)[target_col]
+                    .first()  # Assumes there's only one unique value per group
+                    .to_dict()
+        )
+        
+        # Create a MultiIndex based on group_cols and map to target_col
+        mapped_values = df.set_index(key_cols).index.map(mapping_dict)
+        
+        # Convert the mapped values to a Series aligned with the original DataFrame
+        mapped_series = pd.Series(mapped_values, index=df.index)
+        
+        # Fill missing values in target_col
+        df[target_col] = df[target_col].fillna(mapped_series)
+        
+        return df
+    
+    def fillna_when_single_unique_value(self, df: pd.DataFrame, group_col)-> pd.DataFrame:
+        """
+        For each group (based on group_col) and for each column:
+        - if that column has exactly one unique non-null value within the group,
+            fill any NaNs in that column with the single unique value.
+        """
+        df = df.copy()  # avoid mutating original
+        
+        fillable_cols = ['DateTime', 'user_id', 'product', 'campaign_id',
+       'webpage_id', 'product_category_1', 'user_group_id', 'gender', 'age_level', 'user_depth',
+       'city_development_index', 'var_1']
+        
+        for col in fillable_cols:
+            # For each group, collect the array of unique non-null values
+            group_unique = (
+                df.groupby(group_col)[col]
+                .apply(lambda x: x.dropna().unique())
+            )
+            # Convert that array into a single value if length == 1, else np.nan
+            single_val_map = group_unique.apply(
+                lambda arr: arr[0] if len(arr) == 1 else np.nan
+            ).to_dict()
+
+            # Now fill the missing values for groups that have a single unique value
+            def _fill_func(row):
+                if pd.isnull(row[col]):
+                    # Look up the single possible value for this group
+                    possible_val = single_val_map.get(row[group_col], np.nan)
+                    if not pd.isnull(possible_val):
+                        return possible_val
+                return row[col]
+            
+            df[col] = df.apply(_fill_func, axis=1)
+
+        return df
+
+    def deterministic_fill(self, df: pd.DataFrame) -> pd.DataFrame:
+        changed = True
+        max_iterations = 10
+        iteration = 0
+
+        while changed and iteration < max_iterations:
+            old_df = df.copy()
+            user_cols = ['user_group_id', 'gender', 'age_level', 'city_development_index', 'user_depth']
+
+            for col in user_cols:
+                df = self.infer_by_col(df, col, key_col='user_id')
+
+            #infer webpage_id from campaign_id
+            df = self.infer_by_col(df, "webpage_id", key_col='campaign_id')
+
+            df = self.infer_by_col(df, "product_category_1", key_col='campaign_id', mapping_df= df[df.campaign_id == 396664])
+
+            df = self.infer_by_col(df, "campaign_id", key_col='webpage_id', mapping_df= df[df.webpage_id != 13787])
+
+            df = self.infer_by_col(df, "product_category_1", key_col='webpage_id', mapping_df= df[df.webpage_id == 51181])
+
+            df = self.infer_by_col(df, "gender", key_col='user_group_id', mapping_df= df[df.user_group_id != 0])
+
+            df = self.infer_by_col(df, "age_level", key_col='user_group_id')
+
+            df = self.infer_by_col(df, "user_group_id", key_col='age_level', mapping_df= df[df.age_level == 0])
+
+            df = self.infer_by_two_cols(df, target_col="user_group_id", key_cols=["age_level", "gender"])
+ 
+            df = self.fillna_when_single_unique_value(df, group_col= "product_category_2")
+
+            changed = not df.equals(old_df)
+            iteration += 1
+
+        return df
+    
+    def split_to_train_test(self, df: pd.DataFrame) -> pd.DataFrame:
+        train_df = df[df.is_click !=-1]
+        test_df = df[df.is_click ==-1]
+        return train_df, test_df
+
+
 
     def mode_target(self, df, columns, group_by_col="user_id"):
         df_temp = df.copy()
@@ -180,11 +360,6 @@ class DataPreprocessor:
                 self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
                 df = self.fill_with_mode(df, cols_for_ffill_bfill)
                 self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
-        if "is_click" in df.columns:
-            missing_is_click = df["is_click"].isna().sum()
-            if missing_is_click > 0:
-                self.logger.warning(f"{missing_is_click} rows still have missing 'is_click'. Dropping these rows.")
-                df = df.dropna(subset=["is_click"])
 
         
         return df
@@ -260,26 +435,36 @@ class DataPreprocessor:
 
     """
     
-    def preprocess(self, df: pd.DataFrame, X_test_1st) -> tuple:
-        #df_clean = df.drop_duplicates().copy()
-        df_clean = df[~df['session_id'].duplicated(keep='first') | df['session_id'].isna()].copy()
-        X_test_1st = X_test_1st[~X_test_1st['session_id'].duplicated(keep='first') | X_test_1st['session_id'].isna()].copy()
-        self.logger.info(f"Initial shape: {df.shape}. After removing duplicates: {df_clean.shape}")
+    def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
+        df_train = self.drop_completely_empty(df)
 
+        df_train = self.drop_session_id_or_is_click(df_train)
+
+        df_test = self.decrease_test_user_group_id(df_test) 
+
+        df_test = self.replace_test_user_depth_to_training(df_train, df_test)
+
+        df = self.concat_train_test(df_train, df_test)
+
+        self.logger.info(f"Total number of missing values in the joint dataset: {df.isna().sum().sum()}")
+        df = self.deterministic_fill(df)
+        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum().sum()}")
+
+        df_train, df_test = self.split_to_train_test(df)
         if "DateTime" in df_clean.columns:
             df_clean["DateTime"] = pd.to_datetime(df_clean["DateTime"], errors="coerce")
-            X_test_1st["DateTime"] = pd.to_datetime(X_test_1st["DateTime"], errors="coerce")
+            df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
         if self.remove_outliers:
-            df_clean = self.remove_outliers(df_clean)
-            X_test_1st = self.remove_outliers(X_test_1st)
+            df_train = self.remove_outliers(df_train)
+            df_test = self.remove_outliers(df_test)
 
         if self.fillna:
             df_clean = self.fill_missing_values(df_clean)
-            X_test_1st = self.fill_missing_values(X_test_1st)
+            df_test = self.fill_missing_values(df_test)
 
-        df_clean = self.feature_generation(df_clean)
-        X_test_1st = self.feature_generation(X_test_1st)
+        df_clean = self.feature_generation(df_train)
+        df_test = self.feature_generation(df_test)
 
         X = df_clean.drop(columns=["is_click"])
         y = df_clean["is_click"]
@@ -310,7 +495,7 @@ class DataPreprocessor:
         })
         self.logger.info("Created stratified folds for training data.")
 
-        return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
+        return df_clean, X_train, X_test, y_train, y_test, fold_datasets, df_test
     
     r"""
      ____                  
@@ -321,14 +506,14 @@ class DataPreprocessor:
                         
     """
 
-    def save_data(self, df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st):
+    def save_data(self, df_clean, X_train, X_test, y_train, y_test, fold_datasets, df_test):
         if self.save_as_pickle:
             df_clean.to_pickle(self.output_path / "cleaned_data.pkl")
             X_train.to_pickle(self.output_path / "X_train.pkl")
             X_test.to_pickle(self.output_path / "X_test.pkl")
             y_train.to_pickle(self.output_path / "y_train.pkl")
             y_test.to_pickle(self.output_path / "y_test.pkl")
-            X_test_1st.to_pickle(self.output_path / "X_test_DoNotTouch.pkl")
+            df_test.to_pickle(self.output_path / "df_TEST_DoNotTouch.pkl")
             
             # Save folds
             for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(fold_datasets):
@@ -344,7 +529,7 @@ class DataPreprocessor:
             X_test.to_csv(self.output_path / "X_test.csv", index=False)
             y_train.to_csv(self.output_path / "y_train.csv", index=False, header=True)
             y_test.to_csv(self.output_path / "y_test.csv", index=False, header=True)
-            X_test_1st.to_csv(self.output_path / "X_test_DoNotTouch.csv", index=False)
+            df_test.to_csv(self.output_path / "df_TEST_DoNotTouch.csv", index=False)
             
             # Save folds
             for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(fold_datasets):
@@ -375,6 +560,6 @@ if __name__ == "__main__":
         save_as_pickle=args.save_as_pickle
     )
 
-    df,X_test_1st = preprocessor.load_data(Path(args.csv_path))
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets,X_test_1st = preprocessor.preprocess(df,X_test_1st)
-    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets,X_test_1st)
+    df_train,df_test = preprocessor.load_data(Path(args.csv_path))
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
+    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets,df_test)
