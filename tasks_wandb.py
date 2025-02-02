@@ -1,7 +1,7 @@
 import wandb
 from prefect import task, flow
 from pathlib import Path
-from preprocess_cat import DataPreprocessor
+from Preprocess_optional import DataPreprocessor
 from train import ModelTrainer
 import pandas as pd
 import numpy as np
@@ -80,9 +80,9 @@ def preprocess_data(csv_path: str, output_path: str):
         save_as_pickle=True,
         callback=wandb_callback
     )
-    df = preprocessor.load_data(Path(csv_path))
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
-    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets)
+    df_train,df_test = preprocessor.load_data(Path(csv_path))
+    df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
+    preprocessor.save_data(df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test)
 
 """
 +-+-+-+-+ +-+-+-+-+
