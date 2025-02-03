@@ -68,6 +68,17 @@ def preprocess_data(csv_path: str, output_path: str, callback=None):
     
     # Save Data
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
+
+    if callback:
+        callback({
+            "df_clean": df_clean,
+            "X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "fold_datasets": fold_datasets,
+            "X_test_1st": X_test_1st
+        })
     
     # Confirm Folds Are Correct
     if fold_datasets:
