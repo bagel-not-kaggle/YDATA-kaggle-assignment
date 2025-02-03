@@ -39,17 +39,36 @@ def wandb_callback(metrics: dict):
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
                     df[col] = df[col].astype(str).replace("missing", None)  # Replace 'missing' with None
                 elif pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = pd.to_numeric(df[col], errors='coerce')  # Ensure numeric columns remain numeric
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
 
-            # Convert NaN to None for wandb.Table compatibility
-            df = df.where(pd.notna(df), None)
-
+            df = df.where(pd.notna(df), None)  # Convert NaN to None
             table_metrics[key] = wandb.Table(dataframe=df)
 
         elif isinstance(value, pd.Series):
             series_df = value.to_frame()
             series_df = series_df.where(pd.notna(series_df), None)  # Convert NaN to None
             table_metrics[key] = wandb.Table(dataframe=series_df)
+
+        elif isinstance(value, list) and all(isinstance(item, tuple) for item in value):
+            # Handling fold_datasets (list of tuples)
+            for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(value):
+                
+                # Convert each DataFrame to W&B compatible Table
+                for name, data in zip(
+                    ["X_train", "y_train", "X_val", "y_val"],
+                    [X_train_fold, y_train_fold, X_val_fold, y_val_fold]
+                ):
+                    if isinstance(data, pd.DataFrame) or isinstance(data, pd.Series):
+                        df = data.copy().head(sample_size)
+
+                        for col in df.columns if isinstance(df, pd.DataFrame) else [df.name]:
+                            if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
+                                df[col] = df[col].astype(str).replace("missing", None)
+                            elif pd.api.types.is_numeric_dtype(df[col]):
+                                df[col] = pd.to_numeric(df[col], errors='coerce')
+
+                        df = df.where(pd.notna(df), None)  # Convert NaN to None
+                        table_metrics[f"fold_{i}_{name}"] = wandb.Table(dataframe=df)
 
         else:
             try:
@@ -65,6 +84,7 @@ def wandb_callback(metrics: dict):
     # Log tables separately
     for key, table in table_metrics.items():
         wandb.log({key: table})
+
 
 
 
