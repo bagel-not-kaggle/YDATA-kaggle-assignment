@@ -65,11 +65,21 @@ def wandb_callback(metrics: dict):
 """
 
 @task(name="preprocess_data")
-def preprocess_data(csv_path: str, output_path: str):
+def preprocess_data(csv_path: str, output_path: str, callback=None):
     preprocessor = DataPreprocessor(output_path=Path(output_path))
     df, X_test_1st = preprocessor.load_data(Path(csv_path))
     df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st = preprocessor.preprocess(df, X_test_1st)
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
+    if callback:
+        callback({
+            "df_clean": df_clean,
+            "X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "fold_datasets": fold_datasets,
+            "X_test_1st": X_test_1st
+        })
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
 
 
@@ -175,6 +185,7 @@ def preprocess_and_train_flow(
     wandb.init(
         project="ctr-prediction",
         settings=wandb.Settings(start_method="thread"),
+        name = f"{model_name}_run_{run_id}",
         config={
             "model_name": model_name,
             "n_trials": n_trials,
@@ -183,7 +194,7 @@ def preprocess_and_train_flow(
     )
 
     if preprocess:
-        preprocess_data(csv_path, output_path)
+        preprocess_data(csv_path, output_path, callback=wandb_callback)
 
     base_trainer = ModelTrainer(
         folds_dir=folds_dir,
