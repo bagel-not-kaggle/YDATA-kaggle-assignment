@@ -145,18 +145,16 @@ class ModelTrainer:
             # Return the average F1 score across folds
             mean_score = float(np.mean(scores) if scores else 0.0)
             trial_data = {
-            "trial_number": int(len(trials_data) + 1),
-            "f1_score": mean_score,
-            **params
-                }
+                "trial_number": len(trials_data) + 1,
+                "f1_score": mean_score,
+                 }
             trials_data.append(trial_data)
-            
+
             if self.callback:
                 self.callback({
-                    "trial_metrics": pd.DataFrame([{
-                        "trial_number": trial_data["trial_number"],
-                        "mean_f1_score": mean_score
-                    }])
+                    "mean_f1": mean_score,
+                    "trial_number": trial_data["trial_number"],
+                    "trial_params": params  # Key change: separate hyperparameters
                 })
 
             return mean_score
@@ -166,8 +164,7 @@ class ModelTrainer:
         self.logger.info("Starting hyperparameter tuning...")
         study = optuna.create_study(direction='maximize')
         study.optimize(objective, n_trials=n_trials)
-        if self.callback:
-            self.callback({"best_params": pd.DataFrame([study.best_params])})
+        
 
         self.logger.info(f"Best hyperparameters: {study.best_params}")
         # add to study.best_params the constant parameters
@@ -180,6 +177,8 @@ class ModelTrainer:
                 "verbose": 0,
              }
         best_params = {**study.best_params, **constant_params}
+        if self.callback:
+            self.callback({"best_params": pd.DataFrame([best_params])})
 
         #save best hyperparameters as pickle
         with open(f'data/Hyperparams/best_params{run_id}.json', 'w') as f:

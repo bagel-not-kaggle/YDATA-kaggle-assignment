@@ -15,26 +15,39 @@ import argparse
 """
 
 def wandb_callback(metrics: dict):
-    """
-    Handles DataFrame/Series conversion and ensures W&B logs correctly.
-    """
+    """Handles logging to W&B with proper type separation."""
     processed_metrics = {}
     sample_size = 15000
 
-    for key, value in metrics.items():
-        if isinstance(value, pd.DataFrame):
-            df = value.copy().head(sample_size)
-            df = df.astype(str)  # Convert everything to string to avoid serialization issues
-            processed_metrics[key] = wandb.Table(dataframe=df)
+    # 1. Log hyperparameters to W&B config
+    if "trial_params" in metrics:
+        wandb.config.update(metrics["trial_params"])  # Critical fix
+    if "best_params" in metrics:
+        wandb.config.update(metrics["best_params"])
 
+    # 2. Log metrics
+    if "mean_f1" in metrics and "trial_number" in metrics:
+        wandb.log({
+            "Hyperparameter Tuning/Mean F1": metrics["mean_f1"],
+            "trial": metrics["trial_number"]
+        })
+
+    # 3. Handle other data types (tables, etc.)
+    for key, value in metrics.items():
+        if key in ["trial_params", "best_params", "mean_f1", "trial_number"]:
+            continue  # Skip already-processed items
+
+        if isinstance(value, pd.DataFrame):
+            df = value.sample(frac=1).head(sample_size).astype(str)
+            processed_metrics[key] = wandb.Table(dataframe=df)
         elif isinstance(value, pd.Series):
             series_df = value.to_frame().head(sample_size).astype(str)
             processed_metrics[key] = wandb.Table(dataframe=series_df)
-
         elif isinstance(value, (int, float, str, dict)):
-            processed_metrics[key] = value  # Log scalars and dictionaries directly
+            processed_metrics[key] = value
 
-    wandb.log(processed_metrics)
+    if processed_metrics:
+        wandb.log(processed_metrics)
 
 """
 +-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
