@@ -47,8 +47,10 @@ def wandb_callback(metrics: dict, stage: str = "preprocess"):
             if isinstance(value, pd.DataFrame):
                 df = value.copy()
                 # Ensure the column 'user_group_id' is consistently a string for logging purposes
-                if "user_group_id" in df.columns:
-                    df["user_group_id"] = df["user_group_id"].astype(str)
+                colls_to_temporary_change = ["campaign_id", "webpage_id", "user_group_id"]
+                for col in colls_to_temporary_change:
+                    if col in df.columns:
+                        df[col] = df[col].astype(str)
                 processed_metrics[key] = wandb.Table(dataframe=df.head(15000))
             elif isinstance(value, pd.Series):
                 processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
