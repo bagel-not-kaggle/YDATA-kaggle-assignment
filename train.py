@@ -73,10 +73,10 @@ class ModelTrainer:
             # Define hyperparameters to optimize
             params = {
                 
-                "depth": trial.suggest_int("depth", 4, 7),
-                "learning_rate": trial.suggest_float("learning_rate", 0.08, 0.15),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 15, 40),
-                "random_strength": trial.suggest_float("random_strength", 0.1, 0.8),
+                "depth": trial.suggest_int("depth", 4, 10),
+                "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.15),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 40),
+                "random_strength": trial.suggest_float("random_strength", 0.1, 1),
                 #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
                 #"grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
@@ -90,7 +90,7 @@ class ModelTrainer:
             }
 
             if params["bootstrap_type"] == "Bayesian":
-                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.8)
+                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 1.1)
                 params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"])
             elif params["bootstrap_type"] == "Bernoulli":
                 params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
