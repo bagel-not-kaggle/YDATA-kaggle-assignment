@@ -32,6 +32,10 @@ import pandas as pd
 import numpy as np
 import wandb
 
+import pandas as pd
+import numpy as np
+import wandb
+
 def wandb_callback(metrics: dict):
     """
     A single callback that can be used for both preprocessing and training.
@@ -52,8 +56,9 @@ def wandb_callback(metrics: dict):
                     df[col] = df[col].replace("missing", np.nan)  # Replace "missing" with NaN
                 elif pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = pd.to_numeric(df[col], errors="coerce")  # Ensure numeric types
-                
-            processed_metrics[key] = wandb.Table(dataframe=df)
+            
+            # Convert DataFrame to dictionary to avoid WandB type issues
+            processed_metrics[key] = df.to_dict(orient="list")
 
             # If this is a trial_metrics DataFrame, log additional items
             if key == "trial_metrics" and "trial_number" in df.columns and "mean_f1_score" in df.columns:
@@ -63,9 +68,8 @@ def wandb_callback(metrics: dict):
                 })
 
         elif isinstance(value, pd.Series):
-            # Convert Series to DataFrame for logging
-            series_df = value.to_frame()
-            processed_metrics[key] = wandb.Table(dataframe=series_df)
+            # Convert Series to dictionary
+            processed_metrics[key] = value.to_dict()
         
         else:
             # If it's just a scalar or dictionary, log it as-is
@@ -73,6 +77,7 @@ def wandb_callback(metrics: dict):
     
     # Log everything together
     wandb.log(processed_metrics)
+
 
 
 
