@@ -1,122 +1,95 @@
-from pathlib import Path
-from prefect import task, flow
-from Preprocess_optional import DataPreprocessor
-from train import ModelTrainer
 import wandb
-import json
+from prefect import task, flow
+from pathlib import Path
+from preprocess_cat import DataPreprocessor
+from train import ModelTrainer
 import pandas as pd
-import argparse
 import numpy as np
+import json
+import argparse
 
-#########################################
-#          Wandbak callback             #
-#########################################
-
+"""
++-+-+-+ +-+-+-+-+-+-+-+-+-+
+|W|&|B| |C|a|l|l|b|a|c|k|s|
++-+-+-+ +-+-+-+-+-+-+-+-+-+
+"""
 
 def wandb_callback(metrics: dict):
-    """Handles all DataFrame/Series conversion scenarios"""
-    
-    def process_value(value):
-        # Handle DataFrames
+    """
+    Handles DataFrame/Series conversion and ensures W&B logs correctly.
+    """
+    processed_metrics = {}
+    sample_size = 15000
+
+    for key, value in metrics.items():
         if isinstance(value, pd.DataFrame):
-            df = value.head(5000).copy()
-            # Force numeric columns (campaign_id etc.) to stay numeric
-            num_cols = ["campaign_id", "webpage_id", "user_group_id"]
-            for col in num_cols:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col].replace("missing", np.nan), errors='coerce')
-            return wandb.Table(dataframe=df)
-        
-        # Handle Series
+            df = value.copy().head(sample_size)
+            df = df.astype(str)  # Convert everything to string to avoid serialization issues
+            processed_metrics[key] = wandb.Table(dataframe=df)
+
         elif isinstance(value, pd.Series):
-            return wandb.Table(dataframe=value.to_frame())
-        
-        # Handle lists/tuples containing DataFrames
-        elif isinstance(value, (list, tuple)):
-            return [process_value(v) for v in value]
-        
-        # Handle dictionaries (like fold_datasets metadata)
-        elif isinstance(value, dict):
-            return {k: process_value(v) for k, v in value.items()}
-        
-        # Pass through other types
-        else:
-            return value
-    
-    processed_metrics = {k: process_value(v) for k, v in metrics.items()}
+            series_df = value.to_frame().head(sample_size).astype(str)
+            processed_metrics[key] = wandb.Table(dataframe=series_df)
+
+        elif isinstance(value, (int, float, str, dict)):
+            processed_metrics[key] = value  # Log scalars and dictionaries directly
+
     wandb.log(processed_metrics)
 
-#########################################
-#         Preprocessing Task            #
-#########################################
+"""
++-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
+|P|r|e|p|r|o|c|e|s|s|i|n|g| |T|a|s|k|
++-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
+"""
 
 @task(name="preprocess_data")
-def preprocess_data(csv_path: str, output_path: str, callback=None):
-    preprocessor = DataPreprocessor(output_path=Path(output_path))
-    df, X_test_1st = preprocessor.load_data(Path(csv_path))
-    
-    # Preprocessing
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st = preprocessor.preprocess(df, X_test_1st)
+def preprocess_data(csv_path: str, output_path: str):
+    """
+    Load raw data, run preprocessing, and save the processed data. Logs essential details to W&B.
+    """
+    preprocessor = DataPreprocessor(
+        output_path=Path(output_path),
+        remove_outliers=False,
+        fillna=True,
+        use_dummies=False,
+        save_as_pickle=True,
+        callback=wandb_callback
+    )
+    df = preprocessor.load_data(Path(csv_path))
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
+    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets)
+    return df_clean, X_train, X_test, y_train, y_test, fold_datasets
 
-    # Debug prints
-    print("✅ After preprocessing:")
-    print("df_clean columns:", df_clean.columns)
-    print("X_train columns:", X_train.columns)
-    print("y_train shape:", y_train.shape)
-    print("y_train sample:", y_train.head())
-
-    
-    # Save Data
-    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
-
-    if callback:
-        callback({
-            "df_clean": df_clean,
-            "X_train": X_train,
-            "X_test": X_test,
-            "y_train": y_train,
-            "y_test": y_test,
-            "fold_datasets": fold_datasets,
-            "X_test_1st": X_test_1st
-        })
-    
-    # Confirm Folds Are Correct
-    if fold_datasets:
-        print("Folds length:", len(fold_datasets))
-        print("First fold y_train sample:", fold_datasets[0][1].head())
-
-    
-    return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
-
-#########################################
-#        Hyperparameter Tuning Task     #
-#########################################
+"""
++-+-+-+-+ +-+-+-+-+
+|T|u|n|e| |T|a|s|k|
++-+-+-+-+ +-+-+-+-+
+"""
 
 @task(name="tune_hyperparameters")
 def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
-    # Load training data
-    X_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl")
-    y_train = pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
+    X_train = pd.read_pickle(Path(folds_dir) / "X_train.pkl")
+    y_train = pd.read_pickle(Path(folds_dir) / "y_train.pkl").squeeze()
     cat_features = trainer.determine_categorical_features(X_train)
-
-    best_params = trainer.hyperparameter_tuning(
+    
+    return trainer.hyperparameter_tuning(
         X_train=X_train,
         y_train=y_train,
         cat_features=cat_features,
         n_trials=n_trials,
         run_id=run_id
     )
-    return best_params
 
-#########################################
-#           Training Task               #
-#########################################
+"""
++-+-+-+-+-+-+-+-+ +-+-+-+-+
+|T|r|a|i|n|i|n|g| |T|a|s|k|
++-+-+-+-+-+-+-+-+ +-+-+-+-+
+"""
 
 @task(name="train_model")
 def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_id):
     """
-    Load best hyperparams from JSON (assuming it was saved by the tuner),
-    then train and evaluate the model.
+    Load best hyperparams from JSON (assuming it was saved by the tuner), then train and evaluate the model.
     """
     trainer = ModelTrainer(
         folds_dir=folds_dir,
@@ -126,18 +99,18 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
         params=trainer_params
     )
     results = trainer.train_and_evaluate()
-
-    # Log train and validation F1 scores for all folds
+    
+    # Log train and validation F1 scores per fold
     for fold_index, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
         wandb.log({
             f"Fold {fold_index + 1} Train F1": train_f1,
             f"Fold {fold_index + 1} Validation F1": val_f1
         })
-
-    # Create a single plot with two line plots
+    
+    # Create a train/validation F1 plot
     data = [[fold, train_f1, val_f1] for fold, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"]), 1)]
     table = wandb.Table(data=data, columns=["Fold", "Train F1", "Validation F1"])
-
+    
     wandb.log({
         "train_val_f1_scores": wandb.plot.line_series(
             xs=table.get_column("Fold"),
@@ -147,20 +120,14 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
             xname="Fold"
         )
     })
-
-    # Log average F1 scores
-    wandb.log({
-        "Average Train F1": results["avg_f1_train"],
-        "Average Validation F1": results["avg_f1_val"],
-        "Best Validation F1": results["best_f1"],
-        "Test F1": results["test_f1"]
-    })
-
+    
     return results
 
-#########################################
-#             Main Flow                 #
-#########################################
+"""
++-+-+-+-+ +-+-+-+-+
+|M|a|i|n| |F|l|o|w|
++-+-+-+-+ +-+-+-+-+
+"""
 
 @flow(name="preprocess_and_train_flow")
 def preprocess_and_train_flow(
@@ -174,57 +141,41 @@ def preprocess_and_train_flow(
     preprocess: bool = False,
     tune: bool = False,
     train: bool = False,
-    params = None
+    params=None
 ):
+    """
+    High-level Prefect flow that:
+      1. Initializes a W&B run.
+      2. Preprocesses the data.
+      3. Optionally tunes hyperparameters.
+      4. Optionally trains/evaluates a final model.
+      5. Finishes the W&B run.
+    """
     wandb.init(
         project="ctr-prediction",
         settings=wandb.Settings(start_method="thread"),
-        name=f"{model_name}_run_{run_id}",
-        config={
-            "model_name": model_name,
-            "n_trials": n_trials,
-            "run_id": run_id
-        }
+        config={"model_name": model_name, "n_trials": n_trials, "run_id": run_id}
     )
 
     if preprocess:
-        preprocess_data(csv_path, output_path, callback=wandb_callback)
-
+        preprocess_data(csv_path, output_path)
+    
     base_trainer = ModelTrainer(
         folds_dir=folds_dir,
         test_file=test_file,
         model_name=model_name,
         callback=wandb_callback,
     )
-
-    best_params = None
-
+    
     if tune:
-        best_params = tune_hyperparameters(
-            trainer=base_trainer, folds_dir=folds_dir, n_trials=n_trials, run_id=run_id
-        )
-        
-        if best_params:
-            wandb.config.update(best_params)
-            best_params_path = f"data/Hyperparams/best_params{run_id}.json"
-            with open(best_params_path, "w") as f:
-                json.dump(best_params, f, indent=4)
-            print(f"✅ Saved best hyperparameters to {best_params_path}")
-
+        best_params = tune_hyperparameters(base_trainer, folds_dir, n_trials, run_id)
+        wandb.config.update(best_params)
+    
     if train:
-        final_params_path = params if params else f"data/Hyperparams/best_params{run_id}.json"
-        print(f"✅ Using hyperparameter file: {final_params_path}")
-
-        train_model(
-            trainer_params=final_params_path,
-            folds_dir=folds_dir,
-            test_file=test_file,
-            model_name=model_name,
-            callback=wandb_callback,
-            run_id=run_id
-        )
+        train_model(params, folds_dir, test_file, model_name, wandb_callback, run_id)
 
     wandb.finish()
+
 
 #########################################
 #         CLI Argument Parsing          #
