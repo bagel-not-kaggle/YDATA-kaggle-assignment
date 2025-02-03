@@ -250,7 +250,8 @@ class ModelTrainer:
         a = 0.06767396213210575
         best_f1 = 0
         best_model = None
-        fold_scores = []
+        fold_scores_val = []
+        fold_scores_train = []
         if self.params is not None:
             #read params
             with open(self.params, 'r') as f:
@@ -306,6 +307,7 @@ class ModelTrainer:
                 for name, model in base_models.items():
                     model.fit(X_train, y_train)
                     y_pred_base = model.predict(X_val)
+                    y_pred_train = model.predict(X_train)
                     f1 = f1_score(y_val, y_pred_base)
                     base_f1_scores[name] = f1
                     self.logger.info(f"{name} F1 score: {f1}")
@@ -328,25 +330,34 @@ class ModelTrainer:
             
 
             y_val_pred = model.predict(X_val)
+            y_train_pred = model.predict(X_train)
             fold_f1 = f1_score(y_val, y_val_pred)
-            fold_scores.append(fold_f1)
+            fold_f1_train = f1_score(y_train, y_train_pred)
+            fold_scores_val.append(fold_f1)
+            fold_scores_train.append(fold_f1_train)
 
-            self.logger.info(f"Fold {fold_index + 1} F1 score: {fold_f1}")
+            self.logger.info(f"Fold val {fold_index + 1} F1 score: {fold_f1}",
+                                f"Fold train {fold_index + 1} F1 score: {fold_f1_train}")
 
 
             if self.callback:
-                self.callback({f"fold_{fold_index + 1}_f1": fold_f1})
+                self.callback({f"fold_val_{fold_index + 1}_f1": fold_f1, 
+                                f"fold_train_{fold_index + 1}_f1": fold_f1_train})
 
             if fold_f1 > best_f1:
                 best_f1 = fold_f1
                 best_model = model
+        
+        avg_f1_train = sum(fold_scores_train) / len(fold_scores_train)
+        self.logger.info(f"Average F1 train score across folds: {avg_f1_train}")
 
-        avg_f1 = sum(fold_scores) / len(fold_scores)
-        self.logger.info(f"Average F1 score across folds: {avg_f1}")
-        self.logger.info(f"Best F1 score across folds: {best_f1}")
+        avg_f1_val = sum(fold_scores_val) / len(fold_scores_val)
+        self.logger.info(f"Average F1 val score across folds: {avg_f1_val}")
+        self.logger.info(f"Best F1 val score across folds: {best_f1}")
 
         if self.callback:
-            self.callback({"average_f1": avg_f1, "best_f1": best_f1,"fold_scores": fold_scores})
+            self.callback({"average_f1": avg_f1_val, "best_f1": best_f1,"fold_scores": fold_scores_val,
+                            "fold_scores_train": fold_scores_train})
 
         self.logger.info(f"Loading test data from: {self.test_file}")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")

@@ -1,13 +1,12 @@
-import wandb
 from prefect import task, flow
+import argparse
 from pathlib import Path
 from Preprocess_optional import DataPreprocessor
 from train import ModelTrainer
+import wandb
+import json
 import pandas as pd
 import numpy as np
-import json
-import argparse
-
 
 """
 
@@ -68,21 +67,12 @@ def wandb_callback(metrics: dict):
 
 @task(name="preprocess_data")
 def preprocess_data(csv_path: str, output_path: str):
-    """
-    Load raw data, run preprocessing, and save the processed data. Uses the
-    same wandb_callback for logging.
-    """
-    preprocessor = DataPreprocessor(
-        output_path=Path(output_path),
-        remove_outliers=False,
-        fillna=True,
-        use_dummies=False,
-        save_as_pickle=True,
-        callback=wandb_callback
-    )
-    df_train,df_test = preprocessor.load_data(Path(csv_path))
-    df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
-    preprocessor.save_data(df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test)
+    preprocessor = DataPreprocessor(output_path=Path(output_path))
+    df, X_test_1st = preprocessor.load_data(Path(csv_path))
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st = preprocessor.preprocess(df, X_test_1st)
+    preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
+    return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
+
 
 """
 +-+-+-+-+ +-+-+-+-+
@@ -93,17 +83,14 @@ def preprocess_data(csv_path: str, output_path: str):
 
 @task(name="tune_hyperparameters")
 def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
-    X_train = pd.read_pickle(Path(folds_dir) / "X_train.pkl")
-    y_train = pd.read_pickle(Path(folds_dir) / "y_train.pkl").squeeze()
-    cat_features = trainer.determine_categorical_features(X_train)
-    
-    return trainer.hyperparameter_tuning(
-        X_train=X_train,
-        y_train=y_train,
-        cat_features=cat_features,
+    best_params = trainer.hyperparameter_tuning(
+        X_train=None,  # Placeholder, actual data will be loaded inside the method
+        y_train=None,  # Placeholder, actual data will be loaded inside the method
+        cat_features=None,  # Placeholder, actual data will be loaded inside the method
         n_trials=n_trials,
         run_id=run_id
     )
+    return best_params
 
 
 """
@@ -119,16 +106,30 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     Load best hyperparams from JSON (assuming it was saved by the tuner),
     then train and evaluate the model.
     """
-    
-    
     trainer = ModelTrainer(
         folds_dir=folds_dir,
         test_file=test_file,
         model_name=model_name,
         callback=callback,
-        params = trainer_params
+        params=trainer_params
     )
-    return trainer.train_and_evaluate()
+    results = trainer.train_and_evaluate()
+
+    # Log train and validation F1 scores for all folds in a single graph
+    train_f1_scores = results["fold_scores_train"]
+    val_f1_scores = results["fold_scores_val"]
+
+    wandb.log({
+        "train_val_f1_scores": wandb.plot.line_series(
+            xs=list(range(len(train_f1_scores))),
+            ys=[train_f1_scores, val_f1_scores],
+            keys=["Train F1", "Validation F1"],
+            title="Train and Validation F1 Scores per Fold",
+            xname="Fold"
+        )
+    })
+
+    return results
 
 
 """
@@ -152,15 +153,6 @@ def preprocess_and_train_flow(
     train: bool = False,
     params = None
 ):
-    """
-    High-level Prefect flow that:
-      1. Initializes a W&B run.
-      2. Preprocesses the data.
-      3. Optionally tunes hyperparameters.
-      4. Optionally trains/evaluates a final model.
-      5. Finishes the W&B run.
-    """
-    # Initialize a WandB run for the entire pipeline
     wandb.init(
         project="ctr-prediction",
         settings=wandb.Settings(start_method="thread"),
@@ -170,20 +162,17 @@ def preprocess_and_train_flow(
             "run_id": run_id
         }
     )
-    # Step 1: Preprocess
-    if preprocess:
 
+    if preprocess:
         preprocess_data(csv_path, output_path)
 
-    # Step 2: Create a base trainer for potential tuning or training
     base_trainer = ModelTrainer(
         folds_dir=folds_dir,
         test_file=test_file,
         model_name=model_name,
         callback=wandb_callback,
     )
-    
-    # Step 3: Tune (optional)
+
     best_params = None
 
     if tune:
@@ -193,25 +182,17 @@ def preprocess_and_train_flow(
         
         if best_params:
             wandb.config.update(best_params)
-
             best_params_path = f"data/Hyperparams/best_params{run_id}.json"
             with open(best_params_path, "w") as f:
                 json.dump(best_params, f, indent=4)
             print(f"✅ Saved best hyperparameters to {best_params_path}")
 
-    # Step 4: Train (optional)
-
-    loaded_params = None
-
-    # Load hyperparameters if a params file is provided via CLI
-    
     if train:
         final_params_path = params if params else f"data/Hyperparams/best_params{run_id}.json"
-
         print(f"✅ Using hyperparameter file: {final_params_path}")
 
         train_results = train_model(
-            trainer_params=final_params_path,  # ✅ Pass the file path, NOT the dictionary
+            trainer_params=final_params_path,
             folds_dir=folds_dir,
             test_file=test_file,
             model_name=model_name,
@@ -222,8 +203,6 @@ def preprocess_and_train_flow(
             print(f"✅ Training completed. Logging results: {train_results}")
             wandb.log({"training_results": train_results})
 
-    
-    # Finish the W&B run
     wandb.finish()
 
 
