@@ -90,7 +90,7 @@ class ModelTrainer:
             }
 
             if params["bootstrap_type"] == "Bayesian":
-                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 1.1)
+                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.9)
                 params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"])
             elif params["bootstrap_type"] == "Bernoulli":
                 params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
