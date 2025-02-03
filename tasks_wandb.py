@@ -44,35 +44,25 @@ def wandb_callback(metrics: dict):
     """
     sample_size = 15000
     processed_metrics = {}
-
+    
     for key, value in metrics.items():
         if isinstance(value, pd.DataFrame):
-            df = value.copy().head(sample_size)  # Take a sample for logging
-            
-            # Process categorical and missing values
+            df = value.copy().head(sample_size)
+            # Ensure correct types and handle missing values
             for col in df.columns:
-                if df[col].dtype == "object" or isinstance(df[col].dtype, pd.CategoricalDtype):
-                    df[col] = df[col].astype(str)  # Convert categorical to string
-                    df[col] = df[col].replace("missing", np.nan)  # Replace "missing" with NaN
+                if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
+                    df[col] = df[col].astype(str).replace("missing", np.nan)
                 elif pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = pd.to_numeric(df[col], errors="coerce")  # Ensure numeric types
-            
-            # Convert DataFrame to dictionary to avoid WandB type issues
-            processed_metrics[key] = df.to_dict(orient="list")
-
-            # If this is a trial_metrics DataFrame, log additional items
-            if key == "trial_metrics" and "trial_number" in df.columns and "mean_f1_score" in df.columns:
-                wandb.log({
-                    "trial_number": df["trial_number"].iloc[0],
-                    "mean_f1_score": df["mean_f1_score"].iloc[0]
-                })
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            processed_metrics[key] = wandb.Table(dataframe=df)
 
         elif isinstance(value, pd.Series):
-            # Convert Series to dictionary
-            processed_metrics[key] = value.to_dict()
+            # Convert Series to DataFrame for logging
+            series_df = value.to_frame()
+            processed_metrics[key] = wandb.Table(dataframe=series_df)
         
         else:
-            # If it's just a scalar or dictionary, log it as-is
+            # If it's just a scalar or dictionary
             processed_metrics[key] = value
     
     # Log everything together
