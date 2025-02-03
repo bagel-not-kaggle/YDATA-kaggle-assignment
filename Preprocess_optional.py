@@ -395,15 +395,54 @@ class DataPreprocessor:
         return data
 
 
-    def feature_generation(self, df: pd.DataFrame):
+    def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
         df = df.copy()
-        df = self.smooth_ctr(df, "user_id")
-        df = self.smooth_ctr(df, "product")
-        df = self.smooth_ctr(df, "campaign_id")
-        colls_to_check = ['user_id_ctr', 'product_ctr', 'campaign_id_ctr']
-        self.logger.info(f'missing values in columns: {colls_to_check} before: {df[colls_to_check].isna().sum()}')
-        df[colls_to_check] = df[colls_to_check].fillna(df[colls_to_check].mean())
-        self.logger.info(f'missing values in columns: {colls_to_check} after: {df[colls_to_check].isna().sum()}')
+
+        if subset == "train":
+            # Compute smoothed CTR for the training dataset
+            df = self.smooth_ctr(df, "user_id")
+            df = self.smooth_ctr(df, "product")
+            df = self.smooth_ctr(df, "campaign_id")
+
+            # Store CTR mappings for use in test set
+            self.user_id_ctr_map = df.groupby("user_id")["user_id_ctr"].mean().to_dict()
+            self.product_ctr_map = df.groupby("product")["product_ctr"].mean().to_dict()
+            self.campaign_ctr_map = df.groupby("campaign_id")["campaign_id_ctr"].mean().to_dict()
+
+            # Compute overall CTR for missing value handling
+            self.global_ctr = df["is_click"].mean()
+
+            # Handle missing values
+            colls_to_check = ['user_id_ctr', 'product_ctr', 'campaign_id_ctr']
+            self.logger.info(f'Missing values in {colls_to_check} before: {df[colls_to_check].isna().sum()}')
+
+            if df[colls_to_check].isna().sum().sum() > 0:
+                self.logger.warning(f'Filling missing values in {colls_to_check}')
+                df[colls_to_check] = df[colls_to_check].fillna(self.global_ctr)
+                self.logger.info(f'Missing values in {colls_to_check} after: {df[colls_to_check].isna().sum()}')
+
+        elif subset == "test":
+            # Apply CTR mapping from training set
+            df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map)
+            df["product_ctr"] = df["product"].map(self.product_ctr_map)
+            df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map)
+
+            # Handle unseen values: Fill missing CTR values with global CTR
+            df["user_id_ctr"].fillna(self.global_ctr, inplace=True)
+            df["product_ctr"].fillna(self.global_ctr, inplace=True)
+            df["campaign_id_ctr"].fillna(self.global_ctr, inplace=True)
+
+            # Threshold to decide whether to apply CTR encoding
+            threshold = 0.05  # 5% of test set unique values should exist in train
+            features_to_check = ["user_id", "product", "campaign_id"]
+
+            for feature in features_to_check:
+                test_unique = df[feature].nunique()
+                train_unique = len(getattr(self, f"{feature}_ctr_map", {}))
+
+                if train_unique / test_unique < threshold:
+                    self.logger.warning(f"Too many unseen values in {feature}, removing {feature}_ctr")
+                    df.drop(columns=[f"{feature}_ctr"], inplace=True, errors="ignore")
 
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
@@ -411,50 +450,35 @@ class DataPreprocessor:
         df['Minute'] = df['DateTime'].dt.minute
         df['weekday'] = df['DateTime'].dt.weekday
 
-        cols_to_fill = ["Day", "Hour", "Minute", "weekday"]   
-        self.logger.info(f"Filling missing values with user_id for columns: {cols_to_fill}")
-        df[cols_to_fill] = self.mode_target(df, cols_to_fill,"user_id")
-        #(df.groupby("user_id",observed = True)[cols_to_fill]
-        #    .transform(lambda x: x.ffill().bfill())
-        #    .infer_objects(copy=False)
-        #)
-        colls_to_fill_nas = df[cols_to_fill].isna().sum()
-        if colls_to_fill_nas.sum() > 0:
-            self.logger.warning(f"Still missing values in columns: {colls_to_fill_nas.sum()}")
+        # Fill missing values for time-based features
+        cols_to_fill = ["Day", "Hour", "Minute", "weekday"]
+        df[cols_to_fill] = self.mode_target(df, cols_to_fill, "user_id")
+
+        if df[cols_to_fill].isna().sum().sum() > 0:
             df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
-        self.logger.info("Filled missing values with forward/backward fill.")
-        # Fill missing values
-        if self.use_missing_with_mode:
-            df = self.fill_missing_values(df, use_mode=True)
 
         # Generate campaign-based features
         df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
         df['campaign_duration'] = df['DateTime'] - df['start_date']
-        df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / (3600)
-        df['campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
-            df.groupby('campaign_id', observed=True)['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0])
-            )
-        df['campaign_duration_hours'] = pd.to_numeric(df['campaign_duration_hours'], errors='coerce')
-        self.logger.info(f'missing values in campaign_duration_hours: {df["campaign_duration_hours"].isna().sum()}')
-        
+        df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / 3600
+
+        # Fill campaign duration missing values
+        df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr), inplace=True)
 
         # Drop unnecessary columns
-        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True)
-      
+        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True, errors="ignore")
+
+        # Handle categorical features
         if self.catb:
             self.determine_categorical_features(df)
-        # One-hot encoding if `get_dumm` is True
-        df['campaign_duration_hours'] = df.groupby('webpage_id', observed=True)['campaign_duration_hours'].transform(
-            lambda x: x.ffill().bfill() if not x.mode().empty else x.fillna(0))
-        
 
-        self.logger.info(f'missing values in campaign_duration_hours after: {df["campaign_duration_hours"].isna().sum()}')
-
+        # One-hot encoding if enabled
         if self.use_dummies:
             columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
             df = pd.get_dummies(df, columns=columns_to_d)
 
         return df
+
     
     ########################################################################################################################################################
     
