@@ -80,10 +80,6 @@ def preprocess_data(csv_path: str, output_path: str, callback=None):
     print("y_train shape:", y_train.shape)
     print("y_train sample:", y_train.head())
 
-    # Explicitly extract `is_click` before returning
-    assert "is_click" in df_clean.columns, "⚠️ `is_click` is missing from df_clean!"
-    y_train = df_clean["is_click"]
-    X_train = df_clean.drop(columns=["is_click"])
     
     # Save Data
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
