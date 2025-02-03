@@ -15,38 +15,32 @@ import argparse
 """
 
 def wandb_callback(metrics: dict):
-    """Handles logging to W&B without config conflicts."""
-    processed_metrics = {}
-    sample_size = 15000
-
-    # 1. Handle trial metrics (F1 scores)
+    """
+    Handles DataFrame/Series conversion and ensures W&B logs correctly.
+    """
     if "mean_f1" in metrics and "trial_number" in metrics:
         wandb.log({
             "Hyperparameter Tuning/Mean F1": metrics["mean_f1"],
             "trial": metrics["trial_number"]
         })
+    processed_metrics = {}
+    sample_size = 15000
 
-    # 2. Log trial parameters as a table (not config)
-    if "trial_params" in metrics:
-        params_df = pd.DataFrame([metrics["trial_params"]])
-        processed_metrics["trial_parameters"] = wandb.Table(dataframe=params_df)
-
-    # 3. Handle other data types
     for key, value in metrics.items():
-        if key in ["trial_params", "best_params", "mean_f1", "trial_number"]:
-            continue
-        
         if isinstance(value, pd.DataFrame):
-            df = value.sample(frac=1).head(sample_size).astype(str)
+            #shuffle rows
+            df = value.sample(frac=1).head(sample_size).copy()
+            df = df.astype(str)  # Convert everything to string to avoid serialization issues
             processed_metrics[key] = wandb.Table(dataframe=df)
+
         elif isinstance(value, pd.Series):
             series_df = value.to_frame().head(sample_size).astype(str)
             processed_metrics[key] = wandb.Table(dataframe=series_df)
-        elif isinstance(value, (int, float, str, dict)):
-            processed_metrics[key] = value
 
-    if processed_metrics:
-        wandb.log(processed_metrics)
+        elif isinstance(value, (int, float, str, dict)):
+            processed_metrics[key] = value  # Log scalars and dictionaries directly
+
+    wandb.log(processed_metrics)
 
 """
 +-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
