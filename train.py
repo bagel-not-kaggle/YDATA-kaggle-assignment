@@ -154,8 +154,7 @@ class ModelTrainer:
                 self.callback({
                     "trial_number": trial_data["trial_number"],
                     "mean_f1_score": mean_score
-                })
-
+                    })
 
             return mean_score
 
