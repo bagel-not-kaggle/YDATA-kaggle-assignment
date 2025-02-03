@@ -33,31 +33,27 @@ def wandb_callback(metrics: dict):
 
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
+
+            # Ensure correct types
             for col in df.columns:
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
-                    df[col] = df[col].astype(str)
-                    if "missing" in df[col].values:
-                        df[col] = df[col].replace('missing', np.nan)
+                    df[col] = df[col].astype(str).replace("missing", None)  # Replace 'missing' with None
                 elif pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    df[col] = pd.to_numeric(df[col], errors='coerce')  # Ensure numeric columns remain numeric
+
+            # Convert NaN to None for wandb.Table compatibility
+            df = df.where(pd.notna(df), None)
 
             table_metrics[key] = wandb.Table(dataframe=df)
 
         elif isinstance(value, pd.Series):
             series_df = value.to_frame()
+            series_df = series_df.where(pd.notna(series_df), None)  # Convert NaN to None
             table_metrics[key] = wandb.Table(dataframe=series_df)
-
-        elif isinstance(value, list) and all(isinstance(f, tuple) and len(f) == 4 for f in value):
-            # Handling `fold_datasets` (a list of (X_train, y_train, X_val, y_val) tuples)
-            for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(value):
-                table_metrics[f"fold_{i}_train_X"] = wandb.Table(dataframe=X_train_fold.head(sample_size))
-                table_metrics[f"fold_{i}_train_y"] = wandb.Table(dataframe=y_train_fold.to_frame().head(sample_size))
-                table_metrics[f"fold_{i}_val_X"] = wandb.Table(dataframe=X_val_fold.head(sample_size))
-                table_metrics[f"fold_{i}_val_y"] = wandb.Table(dataframe=y_val_fold.to_frame().head(sample_size))
 
         else:
             try:
-                json.dumps(value)
+                json.dumps(value)  # Test if it's JSON serializable
                 processed_metrics[key] = value
             except TypeError:
                 print(f"⚠️ Warning: {key} is not JSON serializable: {type(value)}")
