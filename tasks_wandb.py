@@ -11,13 +11,9 @@ import numpy as np
 #########################################
 #  Utility Function for Safe Logging  #
 #########################################
-
+"""
 def safe_wandb_log(metrics: dict):
-    """
-    Attempt to JSON-serialize each value in the metrics dictionary.
-    If a value is not serializable (e.g. a DataFrame), try converting it
-    to a wandb.Table (if applicable) or fallback to a string.
-    """
+
     safe_metrics = {}
     for key, value in metrics.items():
         try:
@@ -35,11 +31,11 @@ def safe_wandb_log(metrics: dict):
                 # Fallback: convert value to string
                 safe_metrics[key] = str(value)
     wandb.log(safe_metrics)
-
+"""
 #########################################
 #        Callback for W&B Logging       #
 #########################################
-
+"""
 def wandb_callback(metrics: dict, stage: str = "preprocess"):
     processed_metrics = {}
     for key, value in metrics.items():
@@ -59,7 +55,31 @@ def wandb_callback(metrics: dict, stage: str = "preprocess"):
         else:
             processed_metrics[key] = value
     safe_wandb_log(processed_metrics)
+"""
 
+def wandb_callback(metrics: dict):
+    """
+    A simple W&B callback that logs only basic preprocessing metrics,
+    ensuring categorical variables and missing values are handled correctly.
+    """
+    processed_metrics = {}
+    for key, value in metrics.items():
+        if isinstance(value, pd.DataFrame):
+            df = value.head(100).copy()
+            for col in df.columns:
+                if df[col].dtype == "object" or isinstance(df[col].dtype, pd.CategoricalDtype):
+                    df[col] = df[col].astype(str)  # Convert categorical to string
+                df[col] = df[col].replace({pd.NA: None, 'missing': None})
+            processed_metrics[key] = df.to_dict()
+        elif isinstance(value, pd.Series):
+            series = value.head(100).copy()
+            if series.dtype == "object" or isinstance(series.dtype, pd.CategoricalDtype):
+                series = series.astype(str)
+            series = series.replace({pd.NA: None, 'missing': None})
+            processed_metrics[key] = series.to_dict()
+        else:
+            processed_metrics[key] = value  # Log scalar values as-is
+    wandb.log(processed_metrics)
 
 #########################################
 #         Preprocessing Task            #
