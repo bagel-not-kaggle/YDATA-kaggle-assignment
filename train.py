@@ -152,11 +152,10 @@ class ModelTrainer:
             trials_data.append(trial_data)
             if self.callback:
                 self.callback({
-                    "trial_metrics": pd.DataFrame([{
-                        "trial_number": trial_data["trial_number"],
-                        "mean_f1_score": mean_score
-                    }])
+                    "trial_number": trial_data["trial_number"],
+                    "mean_f1_score": mean_score
                 })
+
 
             return mean_score
 

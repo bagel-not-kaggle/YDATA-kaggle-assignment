@@ -24,17 +24,16 @@ def wandb_callback(metrics: dict):
     for key, value in metrics.items():
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
-            df = df.astype(str)  # Convert everything to string to avoid serialization issues
-            processed_metrics[key] = wandb.Table(dataframe=df)
+            processed_metrics[key] = df.to_dict(orient="list")  # Convert DF to dict for proper logging
 
         elif isinstance(value, pd.Series):
-            series_df = value.to_frame().head(sample_size).astype(str)
-            processed_metrics[key] = wandb.Table(dataframe=series_df)
+            processed_metrics[key] = value.head(sample_size).to_dict()
 
         elif isinstance(value, (int, float, str, dict)):
             processed_metrics[key] = value  # Log scalars and dictionaries directly
 
     wandb.log(processed_metrics)
+
 
 """
 +-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+
@@ -100,12 +99,7 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     )
     results = trainer.train_and_evaluate()
     
-    # Log train and validation F1 scores per fold
-    for fold_index, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
-        wandb.log({
-            f"Fold {fold_index + 1} Train F1": train_f1,
-            f"Fold {fold_index + 1} Validation F1": val_f1
-        })
+    
     
     # Create a train/validation F1 plot
     data = [[fold, train_f1, val_f1] for fold, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"]), 1)]
