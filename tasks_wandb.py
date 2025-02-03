@@ -26,7 +26,7 @@ def wandb_callback(metrics: dict):
     
     for key, value in metrics.items():
         if isinstance(value, pd.DataFrame):
-            df = value.copy().head(sample_size)
+            df = value.copy().sample(min(sample_size, len(value))).reset_index(drop=True)
             # Example transformations for DF logging
             for col in df.columns:
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
