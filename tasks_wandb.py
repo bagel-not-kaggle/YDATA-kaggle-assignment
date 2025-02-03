@@ -20,11 +20,13 @@ def wandb_callback(metrics: dict):
         if isinstance(value, pd.DataFrame):
             df = value.head(5000).copy()
             
-            # Ensure numeric columns stay numeric
+            # Handle numeric columns with "missing"
             numeric_cols = ["campaign_id", "webpage_id", "user_group_id", "product_category"]
             for col in numeric_cols:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')  # Force numeric
+                    # Replace "missing" with NaN, then force numeric
+                    df[col] = df[col].replace("missing", np.nan)
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
             
             # Convert categoricals to strings
             for col in df.select_dtypes(include=['category', 'object']):
