@@ -119,7 +119,7 @@ def preprocess_data(csv_path: str, output_path: str, callback=None):
             "y_test": y_test,
             "fold_datasets": fold_datasets,
             "X_test_1st": X_test_1st
-        }, stage="preprocess")
+        })
     
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
 
