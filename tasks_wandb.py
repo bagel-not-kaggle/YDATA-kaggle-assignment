@@ -119,18 +119,21 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     train_f1_scores = results["fold_scores_train"]
     val_f1_scores = results["fold_scores_val"]
 
-    data = [[fold, train_f1, val_f1] for fold, (train_f1, val_f1) in enumerate(zip(train_f1_scores, val_f1_scores), 1)]
+    folds = list(range(1, len(train_f1_scores) + 1))
+    data = [[fold, train, val] for fold, train, val in zip(folds, train_f1_scores, val_f1_scores)]
     table = wandb.Table(data=data, columns=["Fold", "Train F1", "Validation F1"])
 
-    wandb.log({
-        "train_val_f1_scores": wandb.plot.line_series(
-            xs=table.get_column("Fold"),
-            ys=[table.get_column("Train F1"), table.get_column("Validation F1")],
-            keys=["Train F1", "Validation F1"],
-            title="Train and Validation F1 Scores per Fold",
-            xname="Fold"
-        )
-    })
+# Create a line series plot with the fold numbers as x-axis and both F1 score lists as y-values.
+    chart = wandb.plot.line_series(
+        xs=table.get_column("Fold"),
+        ys=[table.get_column("Train F1"), table.get_column("Validation F1")],
+        keys=["Train F1", "Validation F1"],
+        title="Train and Validation F1 Scores per Fold",
+        xname="Fold"
+    )
+
+    # Log the chart to WandB.
+    wandb.log({"train_val_f1_scores": chart})
 
     return results
 
