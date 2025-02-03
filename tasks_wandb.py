@@ -41,17 +41,15 @@ def safe_wandb_log(metrics: dict):
 #########################################
 
 def wandb_callback(metrics: dict, stage: str = "preprocess"):
-    """
-    A unified callback function for logging metrics to Weights & Biases.
-    
-    For the preprocessing stage, DataFrames and Series are converted to wandb.Table.
-    For other stages (e.g., tuning or training), metrics are left unchanged.
-    """
     processed_metrics = {}
     for key, value in metrics.items():
         if stage == "preprocess":
             if isinstance(value, pd.DataFrame):
-                processed_metrics[key] = wandb.Table(dataframe=value.head(15000))
+                df = value.copy()
+                # Ensure the column 'user_group_id' is consistently a string for logging purposes
+                if "user_group_id" in df.columns:
+                    df["user_group_id"] = df["user_group_id"].astype(str)
+                processed_metrics[key] = wandb.Table(dataframe=df.head(15000))
             elif isinstance(value, pd.Series):
                 processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
             else:
@@ -59,6 +57,7 @@ def wandb_callback(metrics: dict, stage: str = "preprocess"):
         else:
             processed_metrics[key] = value
     safe_wandb_log(processed_metrics)
+
 
 #########################################
 #         Preprocessing Task            #
