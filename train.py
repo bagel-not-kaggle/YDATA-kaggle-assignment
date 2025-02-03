@@ -94,14 +94,16 @@ class ModelTrainer:
 
             if params["bootstrap_type"] == "Bayesian":
                 params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.4, 1.5)
-                params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"])
+                params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"])
             elif params["bootstrap_type"] == "Bernoulli":
                 params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
                 params["grow_policy"] = "SymmetricTree"
 
             # After setting grow_policy, we can check if we need min_data_in_leaf
-            if params['grow_policy'] == 'Depthwise':
+            if params['grow_policy'] == 'Depthwise':    
                 params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 25)
+            elif params['grow_policy'] == 'Lossguide':
+                params['max_leaves'] = trial.suggest_int("max_leaves", 31, 64)
             
             if self.callback:
                 self.callback({"trial_params": params})
