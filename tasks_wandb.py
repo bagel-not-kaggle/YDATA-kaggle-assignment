@@ -1,12 +1,11 @@
 from prefect import task, flow
-import argparse
 from pathlib import Path
 from Preprocess_optional import DataPreprocessor
 from train import ModelTrainer
 import wandb
 import json
 import pandas as pd
-import numpy as np
+import argparse
 
 """
 
@@ -18,19 +17,17 @@ import numpy as np
 
 def wandb_callback(metrics: dict):
     """
-    Callback function for logging metrics to Weights & Biases (WandB).
-    Ensures correct handling of train/validation F1 scores as line plots.
+    A single callback that can be used for both preprocessing and training.
+    It checks if `metrics[key]` is a DataFrame, Series, or something else,
+    and logs appropriately to Weights & Biases.
     """
     sample_size = 15000
     processed_metrics = {}
-
-    train_f1_scores = []
-    val_f1_scores = []
-    folds = []
-
+    
     for key, value in metrics.items():
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
+            # Example transformations for DF logging
             for col in df.columns:
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
                     df[col] = df[col].astype(str)
@@ -40,33 +37,24 @@ def wandb_callback(metrics: dict):
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             processed_metrics[key] = wandb.Table(dataframe=df)
 
-        elif isinstance(value, list) and "fold_scores_train" in key:
-            train_f1_scores = value
-        elif isinstance(value, list) and "fold_scores_val" in key:
-            val_f1_scores = value
-        elif isinstance(value, list) and "fold_numbers" in key:
-            folds = value
+            # If this is a trial_metrics DataFrame, log additional items
+            if key == "trial_metrics" and "trial_number" in df.columns and "mean_f1_score" in df.columns:
+                wandb.log({
+                    "trial_number": df["trial_number"].iloc[0],
+                    "mean_f1_score": df["mean_f1_score"].iloc[0]
+                })
 
         elif isinstance(value, pd.Series):
-            processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
-
+            # Convert Series to DataFrame for logging
+            series_df = value.to_frame()
+            processed_metrics[key] = wandb.Table(dataframe=series_df)
+        
         else:
+            # If it's just a scalar or dictionary
             processed_metrics[key] = value
-
-    # Ensure we have all required F1 scores before logging the plot
-    if train_f1_scores and val_f1_scores and folds:
-        chart = wandb.plot.line_series(
-            xs=folds,
-            ys=[train_f1_scores, val_f1_scores],
-            keys=["Train F1", "Validation F1"],
-            title="Train and Validation F1 Scores per Fold",
-            xname="Fold"
-        )
-        wandb.log({"train_vs_val_f1_plot": chart})
-
-    # Log everything else normally
+    
+    # Log everything together
     wandb.log(processed_metrics)
-
 
 
 """
@@ -94,10 +82,15 @@ def preprocess_data(csv_path: str, output_path: str):
 
 @task(name="tune_hyperparameters")
 def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
+    # Load training data
+    X_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl")
+    y_train = pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
+    cat_features = trainer.determine_categorical_features(X_train)
+
     best_params = trainer.hyperparameter_tuning(
-        X_train=None,  # Placeholder, actual data will be loaded inside the method
-        y_train=None,  # Placeholder, actual data will be loaded inside the method
-        cat_features=None,  # Placeholder, actual data will be loaded inside the method
+        X_train=X_train,
+        y_train=y_train,
+        cat_features=cat_features,
         n_trials=n_trials,
         run_id=run_id
     )
@@ -126,25 +119,34 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     )
     results = trainer.train_and_evaluate()
 
-    # Log train and validation F1 scores for all folds in a single graph
-    train_f1_scores = results["fold_scores_train"]
-    val_f1_scores = results["fold_scores_val"]
+    # Log train and validation F1 scores for all folds
+    for fold_index, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
+        wandb.log({
+            f"Fold {fold_index + 1} Train F1": train_f1,
+            f"Fold {fold_index + 1} Validation F1": val_f1
+        })
 
-    folds = list(range(1, len(train_f1_scores) + 1))
-    data = [[fold, train, val] for fold, train, val in zip(folds, train_f1_scores, val_f1_scores)]
+    # Create a single plot with two line plots
+    data = [[fold, train_f1, val_f1] for fold, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"]), 1)]
     table = wandb.Table(data=data, columns=["Fold", "Train F1", "Validation F1"])
 
-# Create a line series plot with the fold numbers as x-axis and both F1 score lists as y-values.
-    chart = wandb.plot.line_series(
-        xs=table.get_column("Fold"),
-        ys=[table.get_column("Train F1"), table.get_column("Validation F1")],
-        keys=["Train F1", "Validation F1"],
-        title="Train and Validation F1 Scores per Fold",
-        xname="Fold"
-    )
+    wandb.log({
+        "train_val_f1_scores": wandb.plot.line_series(
+            xs=table.get_column("Fold"),
+            ys=[table.get_column("Train F1"), table.get_column("Validation F1")],
+            keys=["Train F1", "Validation F1"],
+            title="Train and Validation F1 Scores per Fold",
+            xname="Fold"
+        )
+    })
 
-    # Log the chart to WandB.
-    wandb.log({"train_val_f1_scores": chart})
+    # Log average F1 scores
+    wandb.log({
+        "Average Train F1": results["avg_f1_train"],
+        "Average Validation F1": results["avg_f1_val"],
+        "Best Validation F1": results["best_f1"],
+        "Test F1": results["test_f1"]
+    })
 
     return results
 
@@ -194,7 +196,7 @@ def preprocess_and_train_flow(
 
     if tune:
         best_params = tune_hyperparameters(
-            base_trainer, folds_dir, n_trials, run_id
+            trainer=base_trainer, folds_dir=folds_dir, n_trials=n_trials, run_id=run_id
         )
         
         if best_params:
@@ -208,7 +210,7 @@ def preprocess_and_train_flow(
         final_params_path = params if params else f"data/Hyperparams/best_params{run_id}.json"
         print(f"✅ Using hyperparameter file: {final_params_path}")
 
-        results = train_model(
+        train_model(
             trainer_params=final_params_path,
             folds_dir=folds_dir,
             test_file=test_file,
@@ -216,9 +218,6 @@ def preprocess_and_train_flow(
             callback=wandb_callback,
             run_id=run_id
         )
-        if results:
-            print(f"✅ Training completed. Logging results: {results}")
-            #wandb.log({"training_results": results})
 
     wandb.finish()
 
