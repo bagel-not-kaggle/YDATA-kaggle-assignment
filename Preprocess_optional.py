@@ -535,7 +535,7 @@ class DataPreprocessor:
         y_test = df_train_val["is_click"]
 
         # Create stratified folds for train set
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=55)
         fold_datasets = []
 
         for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):

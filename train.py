@@ -73,10 +73,12 @@ class ModelTrainer:
             # Define hyperparameters to optimize
             params = {
                 
-                "depth": trial.suggest_int("depth", 4, 10),
+                "depth": trial.suggest_int("depth", 3, 10),
                 "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.15),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 10, 40),
-                "random_strength": trial.suggest_float("random_strength", 0.1, 1),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 13, 40),
+                "random_strength": trial.suggest_float("random_strength", 0.3, 5),
+                "rsm": trial.suggest_float("rsm", 0.6, 1.0),
+                "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 1, 20),
                 #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
                 #"grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
@@ -85,12 +87,13 @@ class ModelTrainer:
                 "eval_metric": "F1",
                 "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
+                
                 "random_seed": 42,
                 "verbose": 0,
             }
 
             if params["bootstrap_type"] == "Bayesian":
-                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.1, 0.9)
+                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.4, 1.5)
                 params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"])
             elif params["bootstrap_type"] == "Bernoulli":
                 params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
@@ -98,7 +101,7 @@ class ModelTrainer:
 
             # After setting grow_policy, we can check if we need min_data_in_leaf
             if params['grow_policy'] == 'Depthwise':
-                params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 20)
+                params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 25)
             
             if self.callback:
                 self.callback({"trial_params": params})
