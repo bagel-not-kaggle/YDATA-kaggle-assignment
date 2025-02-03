@@ -30,7 +30,7 @@ def wandb_callback(metrics: dict):
 
     for key, value in metrics.items():
         print(f"Logging key: {key}, type: {type(value)}")  # Debug print
-        
+
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
             for col in df.columns:
@@ -47,14 +47,21 @@ def wandb_callback(metrics: dict):
             series_df = value.to_frame()
             table_metrics[key] = wandb.Table(dataframe=series_df)
 
+        elif isinstance(value, list) and all(isinstance(f, tuple) and len(f) == 4 for f in value):
+            # Handling `fold_datasets` (a list of (X_train, y_train, X_val, y_val) tuples)
+            for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(value):
+                table_metrics[f"fold_{i}_train_X"] = wandb.Table(dataframe=X_train_fold.head(sample_size))
+                table_metrics[f"fold_{i}_train_y"] = wandb.Table(dataframe=y_train_fold.to_frame().head(sample_size))
+                table_metrics[f"fold_{i}_val_X"] = wandb.Table(dataframe=X_val_fold.head(sample_size))
+                table_metrics[f"fold_{i}_val_y"] = wandb.Table(dataframe=y_val_fold.to_frame().head(sample_size))
+
         else:
             try:
-                # Test if it's JSON serializable
                 json.dumps(value)
                 processed_metrics[key] = value
             except TypeError:
                 print(f"⚠️ Warning: {key} is not JSON serializable: {type(value)}")
-    
+
     # Log scalar values first
     if processed_metrics:
         wandb.log(processed_metrics)
@@ -62,6 +69,7 @@ def wandb_callback(metrics: dict):
     # Log tables separately
     for key, table in table_metrics.items():
         wandb.log({key: table})
+
 
 
 
