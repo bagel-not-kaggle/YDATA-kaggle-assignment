@@ -336,8 +336,8 @@ class ModelTrainer:
             fold_scores_val.append(fold_f1)
             fold_scores_train.append(fold_f1_train)
 
-            self.logger.info(f"Fold val {fold_index + 1} F1 score: {fold_f1}",
-                                f"Fold train {fold_index + 1} F1 score: {fold_f1_train}")
+            self.logger.info(f"Fold val {fold_index + 1} F1 score: {fold_f1}")
+            self.logger.info(f"Fold train {fold_index + 1} F1 score: {fold_f1_train}")
 
 
             if self.callback:
@@ -379,6 +379,15 @@ class ModelTrainer:
         self.logger.info(f"F1 score on test set: {test_f1}")
         if self.callback:
             self.callback({"test_f1": test_f1})
+        
+        return  {
+        "avg_f1_train": avg_f1_train,
+        "avg_f1_val": avg_f1_val,
+        "best_f1": best_f1,
+        "test_f1": test_f1,
+        "fold_scores_train": fold_scores_train,
+        "fold_scores_val": fold_scores_val
+        }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train and evaluate CatBoost using pre-saved folds.")
