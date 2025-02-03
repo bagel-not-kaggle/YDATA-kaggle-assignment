@@ -9,23 +9,7 @@ import argparse
 import numpy as np
 
 
-"""
 
-+-+-+-+ +-+-+-+-+-+-+-+-+-+
-|W|&|B| |C|a|l|l|b|a|c|k|s|
-+-+-+-+ +-+-+-+-+-+-+-+-+-+
-
-"""
-
-from prefect import task, flow
-from pathlib import Path
-from Preprocess_optional import DataPreprocessor
-from train import ModelTrainer
-import wandb
-import json
-import pandas as pd
-import argparse
-import numpy as np
 
 """
 +-+-+-+ +-+-+-+-+-+-+-+-+-+
@@ -44,39 +28,45 @@ def wandb_callback(metrics: dict):
     and logs appropriately to Weights & Biases.
     """
     sample_size = 15000
-    processed_metrics = {}
-    
-    for key, value in metrics.items():
+    scalar_metrics = {}
+    table_metrics = {}
+
+    def process_value(value):
+        # If the value is a DataFrame, convert it to a wandb.Table.
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
-            # Example transformations for DF logging
             for col in df.columns:
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
                     df[col] = df[col].astype(str)
-                    if "missing" in df[col].values:
-                        df[col] = df[col].replace('missing', np.nan)
+                    df[col] = df[col].replace('missing', np.nan)
                 elif pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = pd.to_numeric(df[col], errors='coerce')
-            processed_metrics[key] = wandb.Table(dataframe=df)
-
-            # If this is a trial_metrics DataFrame, log additional items
-            if key == "trial_metrics" and "trial_number" in df.columns and "mean_f1_score" in df.columns:
-                wandb.log({
-                    "trial_number": df["trial_number"].iloc[0],
-                    "mean_f1_score": df["mean_f1_score"].iloc[0]
-                })
-
+            return wandb.Table(dataframe=df)
         elif isinstance(value, pd.Series):
-            # Convert Series to DataFrame for logging
             series_df = value.to_frame()
-            processed_metrics[key] = wandb.Table(dataframe=series_df)
-        
+            return wandb.Table(dataframe=series_df)
+        elif isinstance(value, (list, tuple)):
+            return [process_value(item) for item in value]
+        elif isinstance(value, dict):
+            return {k: process_value(v) for k, v in value.items()}
         else:
-            # If it's just a scalar or dictionary
-            processed_metrics[key] = value
-    
-    # Log everything together
-    wandb.log(processed_metrics)
+            return value
+
+    # Split metrics into scalar and table values.
+    for key, value in metrics.items():
+        processed = process_value(value)
+        if isinstance(processed, wandb.Table):
+            table_metrics[key] = processed
+        else:
+            scalar_metrics[key] = processed
+
+    # Log scalar values in one call.
+    if scalar_metrics:
+        wandb.log(scalar_metrics)
+    # Log each table metric separately.
+    for key, table in table_metrics.items():
+        wandb.log({key: table})
+
 
 
 
@@ -100,7 +90,7 @@ def preprocess_data(csv_path: str, output_path: str, callback=None):
             "y_train": y_train,
             "y_test": y_test,
             "fold_datasets": fold_datasets,
-            "X_test_1st": X_test_1st
+            #"X_test_1st": X_test_1st
         })
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
 
