@@ -101,8 +101,31 @@ def wandb_callback(metrics: dict):
 def preprocess_data(csv_path: str, output_path: str, callback=None):
     preprocessor = DataPreprocessor(output_path=Path(output_path))
     df, X_test_1st = preprocessor.load_data(Path(csv_path))
+    
+    # Preprocessing
     df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st = preprocessor.preprocess(df, X_test_1st)
+
+    # 🚀 Add Debugging Prints
+    print("✅ After preprocessing:")
+    print("df_clean columns:", df_clean.columns)
+    print("X_train columns:", X_train.columns)
+    print("y_train shape:", y_train.shape)
+    print("y_train sample:", y_train.head())
+
+    # ✅ Explicitly extract `is_click` before returning
+    assert "is_click" in df_clean.columns, "⚠️ `is_click` is missing from df_clean!"
+    y_train = df_clean["is_click"]
+    X_train = df_clean.drop(columns=["is_click"])
+    
+    # Save Data
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
+    
+    # 🚀 Confirm Folds Are Correct
+    if fold_datasets:
+        print("Folds length:", len(fold_datasets))
+        print("First fold y_train sample:", fold_datasets[0][1].head())
+
+    # Callback to W&B
     if callback:
         callback({
             "df_clean": df_clean,
@@ -110,10 +133,11 @@ def preprocess_data(csv_path: str, output_path: str, callback=None):
             "X_test": X_test,
             "y_train": y_train,
             "y_test": y_test,
-            "fold_datasets": fold_datasets,
-            #"X_test_1st": X_test_1st
+            "fold_datasets": fold_datasets
         })
+    
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
+
 
 
 """
