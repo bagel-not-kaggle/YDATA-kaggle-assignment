@@ -14,13 +14,11 @@ import numpy as np
 
 
 def wandb_callback(metrics: dict):
-    """Simplified W&B callback that handles DataFrames properly"""
     processed_metrics = {}
     
     for key, value in metrics.items():
         # Handle DataFrames
         if isinstance(value, pd.DataFrame):
-            # Safely sample and convert categorical columns
             df = value.head(5000).copy()
             for col in df.select_dtypes(include=['category', 'object']):
                 df[col] = df[col].astype(str)
@@ -30,11 +28,24 @@ def wandb_callback(metrics: dict):
         elif isinstance(value, pd.Series):
             processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
             
+        # Handle fold_datasets (list of tuples)
+        elif key == "fold_datasets" and isinstance(value, list):
+            fold_tables = []
+            for fold_idx, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(value):
+                fold_tables.append({
+                    f"fold_{fold_idx}_X_train": wandb.Table(dataframe=X_train_fold.head(1000)),
+                    f"fold_{fold_idx}_y_train": wandb.Table(dataframe=y_train_fold.to_frame()),
+                    f"fold_{fold_idx}_X_val": wandb.Table(dataframe=X_val_fold.head(1000)),
+                    f"fold_{fold_idx}_y_val": wandb.Table(dataframe=y_val_fold.to_frame())
+                })
+            processed_metrics["fold_datasets"] = fold_tables
+            
         # Handle other types
         else:
             processed_metrics[key] = value
     
     wandb.log(processed_metrics)
+
 #########################################
 #         Preprocessing Task            #
 #########################################
