@@ -9,78 +9,32 @@ import argparse
 import numpy as np
 
 #########################################
-#  Utility Function for Safe Logging  #
+#          Wandbak callback             #
 #########################################
-"""
-def safe_wandb_log(metrics: dict):
 
-    safe_metrics = {}
-    for key, value in metrics.items():
-        try:
-            # Try to dump the value using json; if it fails, go to except
-            json.dumps(value, default=str)
-            safe_metrics[key] = value
-        except (TypeError, OverflowError):
-            if isinstance(value, pd.DataFrame):
-                # Convert DataFrame to a table, limiting the number of rows
-                safe_metrics[key] = wandb.Table(dataframe=value.head(15000))
-            elif isinstance(value, pd.Series):
-                # Convert Series to DataFrame first
-                safe_metrics[key] = wandb.Table(dataframe=value.to_frame())
-            else:
-                # Fallback: convert value to string
-                safe_metrics[key] = str(value)
-    wandb.log(safe_metrics)
-"""
-#########################################
-#        Callback for W&B Logging       #
-#########################################
-"""
-def wandb_callback(metrics: dict, stage: str = "preprocess"):
-    processed_metrics = {}
-    for key, value in metrics.items():
-        if stage == "preprocess":
-            if isinstance(value, pd.DataFrame):
-                df = value.copy()
-                # Ensure the column 'user_group_id' is consistently a string for logging purposes
-                colls_to_temporary_change = ["campaign_id", "webpage_id", "user_group_id"]
-                for col in colls_to_temporary_change:
-                    if col in df.columns:
-                        df[col] = df[col].astype(str)
-                processed_metrics[key] = wandb.Table(dataframe=df.head(15000))
-            elif isinstance(value, pd.Series):
-                processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
-            else:
-                processed_metrics[key] = value
-        else:
-            processed_metrics[key] = value
-    safe_wandb_log(processed_metrics)
-"""
 
 def wandb_callback(metrics: dict):
-    """
-    A simple W&B callback that logs only basic preprocessing metrics,
-    ensuring categorical variables and missing values are handled correctly.
-    """
+    """Simplified W&B callback that handles DataFrames properly"""
     processed_metrics = {}
+    
     for key, value in metrics.items():
+        # Handle DataFrames
         if isinstance(value, pd.DataFrame):
-            df = value.head(100).copy()
-            for col in df.columns:
-                if df[col].dtype == "object" or isinstance(df[col].dtype, pd.CategoricalDtype):
-                    df[col] = df[col].astype(str)  # Convert categorical to string
-                df[col] = df[col].replace({pd.NA: None, 'missing': None})
-            processed_metrics[key] = df.to_dict()
+            # Safely sample and convert categorical columns
+            df = value.head(5000).copy()
+            for col in df.select_dtypes(include=['category', 'object']):
+                df[col] = df[col].astype(str)
+            processed_metrics[key] = wandb.Table(dataframe=df)
+            
+        # Handle Series
         elif isinstance(value, pd.Series):
-            series = value.head(100).copy()
-            if series.dtype == "object" or isinstance(series.dtype, pd.CategoricalDtype):
-                series = series.astype(str)
-            series = series.replace({pd.NA: None, 'missing': None})
-            processed_metrics[key] = series.to_dict()
+            processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
+            
+        # Handle other types
         else:
-            processed_metrics[key] = value  # Log scalar values as-is
+            processed_metrics[key] = value
+    
     wandb.log(processed_metrics)
-
 #########################################
 #         Preprocessing Task            #
 #########################################
