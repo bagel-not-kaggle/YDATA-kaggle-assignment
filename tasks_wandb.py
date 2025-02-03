@@ -119,18 +119,17 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     train_f1_scores = results["fold_scores_train"]
     val_f1_scores = results["fold_scores_val"]
 
-    for fold_index, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
-        wandb.log({
-            f"Fold {fold_index + 1} Train F1": train_f1,
-            f"Fold {fold_index + 1} Validation F1": val_f1
-        })
+    data = [[fold, train_f1, val_f1] for fold, (train_f1, val_f1) in enumerate(zip(train_f1_scores, val_f1_scores), 1)]
+    table = wandb.Table(data=data, columns=["Fold", "Train F1", "Validation F1"])
 
-    # Log average F1 scores
     wandb.log({
-        "Average Train F1": results["avg_f1_train"],
-        "Average Validation F1": results["avg_f1_val"],
-        "Best Validation F1": results["best_f1"],
-        "Test F1": results["test_f1"]
+        "train_val_f1_scores": wandb.plot.line_series(
+            xs=table.get_column("Fold"),
+            ys=[table.get_column("Train F1"), table.get_column("Validation F1")],
+            keys=["Train F1", "Validation F1"],
+            title="Train and Validation F1 Scores per Fold",
+            xname="Fold"
+        )
     })
 
     return results
