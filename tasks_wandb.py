@@ -14,32 +14,36 @@ import numpy as np
 
 
 def wandb_callback(metrics: dict):
-    processed_metrics = {}
+    """Handles all DataFrame/Series conversion scenarios"""
     
-    for key, value in metrics.items():
+    def process_value(value):
+        # Handle DataFrames
         if isinstance(value, pd.DataFrame):
             df = value.head(5000).copy()
-            
-            # Handle numeric columns with "missing"
-            numeric_cols = ["campaign_id", "webpage_id", "user_group_id", "product_category"]
-            for col in numeric_cols:
+            # Force numeric columns (campaign_id etc.) to stay numeric
+            num_cols = ["campaign_id", "webpage_id", "user_group_id"]
+            for col in num_cols:
                 if col in df.columns:
-                    # Replace "missing" with NaN, then force numeric
-                    df[col] = df[col].replace("missing", np.nan)
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            # Convert categoricals to strings
-            for col in df.select_dtypes(include=['category', 'object']):
-                df[col] = df[col].astype(str)
-            
-            processed_metrics[key] = wandb.Table(dataframe=df)
-            
+                    df[col] = pd.to_numeric(df[col].replace("missing", np.nan), errors='coerce')
+            return wandb.Table(dataframe=df)
+        
+        # Handle Series
         elif isinstance(value, pd.Series):
-            processed_metrics[key] = wandb.Table(dataframe=value.to_frame())
-            
+            return wandb.Table(dataframe=value.to_frame())
+        
+        # Handle lists/tuples containing DataFrames
+        elif isinstance(value, (list, tuple)):
+            return [process_value(v) for v in value]
+        
+        # Handle dictionaries (like fold_datasets metadata)
+        elif isinstance(value, dict):
+            return {k: process_value(v) for k, v in value.items()}
+        
+        # Pass through other types
         else:
-            processed_metrics[key] = value
+            return value
     
+    processed_metrics = {k: process_value(v) for k, v in metrics.items()}
     wandb.log(processed_metrics)
 
 #########################################
