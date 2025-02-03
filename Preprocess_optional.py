@@ -554,7 +554,8 @@ class DataPreprocessor:
             "X_train": X_train,
             "X_test": X_test,
             "y_train": y_train,
-            "y_test": y_test
+            "y_test": y_test,
+            "X_test_1st": df_test
         })
         self.logger.info("Created stratified folds for training data.")
 

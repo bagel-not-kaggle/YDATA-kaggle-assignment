@@ -74,17 +74,6 @@ def preprocess_data(csv_path: str, output_path: str, callback=None):
         print("Folds length:", len(fold_datasets))
         print("First fold y_train sample:", fold_datasets[0][1].head())
 
-    # Callback to W&B (using stage 'preprocess' to force table conversion)
-    if callback:
-        callback({
-            "df_clean": df_clean,
-            "X_train": X_train,
-            "X_test": X_test,
-            "y_train": y_train,
-            "y_test": y_test,
-            "fold_datasets": fold_datasets,
-            "X_test_1st": X_test_1st
-        })
     
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
 
