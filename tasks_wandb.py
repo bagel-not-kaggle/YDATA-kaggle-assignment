@@ -21,51 +21,48 @@ import wandb
 import pandas as pd
 import numpy as np
 
+import json
+
 def wandb_callback(metrics: dict):
-    """
-    A single callback that can be used for both preprocessing and training.
-    It checks if `metrics[key]` is a DataFrame, Series, or something else,
-    and logs appropriately to Weights & Biases.
-    """
     sample_size = 15000
-    scalar_metrics = {}
+    processed_metrics = {}
     table_metrics = {}
 
-    def process_value(value):
-        # If the value is a DataFrame, convert it to a wandb.Table.
+    for key, value in metrics.items():
+        print(f"Logging key: {key}, type: {type(value)}")  # Debug print
+        
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
             for col in df.columns:
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
                     df[col] = df[col].astype(str)
-                    df[col] = df[col].replace('missing', np.nan)
+                    if "missing" in df[col].values:
+                        df[col] = df[col].replace('missing', np.nan)
                 elif pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = pd.to_numeric(df[col], errors='coerce')
-            return wandb.Table(dataframe=df)
+
+            table_metrics[key] = wandb.Table(dataframe=df)
+
         elif isinstance(value, pd.Series):
             series_df = value.to_frame()
-            return wandb.Table(dataframe=series_df)
-        elif isinstance(value, (list, tuple)):
-            return [process_value(item) for item in value]
-        elif isinstance(value, dict):
-            return {k: process_value(v) for k, v in value.items()}
-        else:
-            return value
+            table_metrics[key] = wandb.Table(dataframe=series_df)
 
-    # Split metrics into scalar and table values.
-    for key, value in metrics.items():
-        processed = process_value(value)
-        if isinstance(processed, wandb.Table):
-            table_metrics[key] = processed
         else:
-            scalar_metrics[key] = processed
+            try:
+                # Test if it's JSON serializable
+                json.dumps(value)
+                processed_metrics[key] = value
+            except TypeError:
+                print(f"⚠️ Warning: {key} is not JSON serializable: {type(value)}")
+    
+    # Log scalar values first
+    if processed_metrics:
+        wandb.log(processed_metrics)
 
-    # Log scalar values in one call.
-    if scalar_metrics:
-        wandb.log(scalar_metrics)
-    # Log each table metric separately.
+    # Log tables separately
     for key, table in table_metrics.items():
         wandb.log({key: table})
+
 
 
 
