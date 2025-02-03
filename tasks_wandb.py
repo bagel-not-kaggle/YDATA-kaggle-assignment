@@ -55,8 +55,8 @@ def preprocess_data(csv_path: str, output_path: str):
         save_as_pickle=True,
         callback=wandb_callback
     )
-    df = preprocessor.load_data(Path(csv_path))
-    df_clean, X_train, X_test, y_train, y_test, fold_datasets = preprocessor.preprocess(df)
+    df, X_test_1st = preprocessor.load_data(Path(csv_path))
+    df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st = preprocessor.preprocess(df, X_test_1st)
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets)
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets
 
