@@ -119,14 +119,18 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
     train_f1_scores = results["fold_scores_train"]
     val_f1_scores = results["fold_scores_val"]
 
+    for fold_index, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
+        wandb.log({
+            f"Fold {fold_index + 1} Train F1": train_f1,
+            f"Fold {fold_index + 1} Validation F1": val_f1
+        })
+
+    # Log average F1 scores
     wandb.log({
-        "train_val_f1_scores": wandb.plot.line_series(
-            xs=list(range(len(train_f1_scores))),
-            ys=[train_f1_scores, val_f1_scores],
-            keys=["Train F1", "Validation F1"],
-            title="Train and Validation F1 Scores per Fold",
-            xname="Fold"
-        )
+        "Average Train F1": results["avg_f1_train"],
+        "Average Validation F1": results["avg_f1_val"],
+        "Best Validation F1": results["best_f1"],
+        "Test F1": results["test_f1"]
     })
 
     return results
@@ -191,7 +195,7 @@ def preprocess_and_train_flow(
         final_params_path = params if params else f"data/Hyperparams/best_params{run_id}.json"
         print(f"✅ Using hyperparameter file: {final_params_path}")
 
-        train_results = train_model(
+        results = train_model(
             trainer_params=final_params_path,
             folds_dir=folds_dir,
             test_file=test_file,
@@ -199,9 +203,9 @@ def preprocess_and_train_flow(
             callback=wandb_callback,
             run_id=run_id
         )
-        if train_results:
-            print(f"✅ Training completed. Logging results: {train_results}")
-            wandb.log({"training_results": train_results})
+        if results:
+            print(f"✅ Training completed. Logging results: {results}")
+            #wandb.log({"training_results": results})
 
     wandb.finish()
 
