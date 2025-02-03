@@ -33,47 +33,61 @@ import numpy as np
 +-+-+-+ +-+-+-+-+-+-+-+-+-+
 """
 
+import wandb
+import pandas as pd
+import numpy as np
+
 def wandb_callback(metrics: dict):
     """
     A single callback that can be used for both preprocessing and training.
-    It checks if `metrics[key]` is a DataFrame, Series, list, tuple, dict, or something else,
+    It checks if a metric is a DataFrame, Series, or something else,
     and logs appropriately to Weights & Biases.
     """
     sample_size = 15000
-    processed_metrics = {}
+    scalar_metrics = {}
+    table_metrics = {}
 
     def process_value(value):
+        # If the value is a DataFrame, convert it to a wandb.Table.
         if isinstance(value, pd.DataFrame):
             df = value.copy().head(sample_size)
-            # Convert object columns and numeric columns
+            # Process each column
             for col in df.columns:
-                # If the column is categorical or object, force conversion to string
                 if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
                     df[col] = df[col].astype(str)
-                    # Replace any "missing" strings with actual NaN values
+                    # Replace literal "missing" strings with NaN if needed
                     df[col] = df[col].replace('missing', np.nan)
                 elif pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             return wandb.Table(dataframe=df)
+        # If the value is a Series, convert it to a DataFrame first.
         elif isinstance(value, pd.Series):
-            # Convert Series to DataFrame for logging
             series_df = value.to_frame()
             return wandb.Table(dataframe=series_df)
+        # For lists, tuples, or dicts, process their elements recursively.
         elif isinstance(value, (list, tuple)):
-            # Process each element in the list/tuple
             return [process_value(item) for item in value]
         elif isinstance(value, dict):
-            # Process dictionaries recursively
             return {k: process_value(v) for k, v in value.items()}
         else:
-            # For scalars or other types, return as is
             return value
 
+    # Split metrics into scalar and table values.
     for key, value in metrics.items():
-        processed_metrics[key] = process_value(value)
-    
-    # Log everything together
-    wandb.log(processed_metrics)
+        processed = process_value(value)
+        # If the processed value is a wandb.Table, add it to table_metrics.
+        if isinstance(processed, wandb.Table):
+            table_metrics[key] = processed
+        else:
+            scalar_metrics[key] = processed
+
+    # Log scalar values in one call.
+    if scalar_metrics:
+        wandb.log(scalar_metrics)
+    # Log each table metric separately.
+    for key, table in table_metrics.items():
+        wandb.log({key: table})
+
 
 
 """
