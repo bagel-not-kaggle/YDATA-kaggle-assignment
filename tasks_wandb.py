@@ -15,28 +15,27 @@ import argparse
 """
 
 def wandb_callback(metrics: dict):
-    """Handles logging to W&B with proper type separation."""
+    """Handles logging to W&B without config conflicts."""
     processed_metrics = {}
     sample_size = 15000
 
-    # 1. Log hyperparameters to W&B config
-    if "trial_params" in metrics:
-        wandb.config.update(metrics["trial_params"])  # Critical fix
-    if "best_params" in metrics:
-        wandb.config.update(metrics["best_params"])
-
-    # 2. Log metrics
+    # 1. Handle trial metrics (F1 scores)
     if "mean_f1" in metrics and "trial_number" in metrics:
         wandb.log({
             "Hyperparameter Tuning/Mean F1": metrics["mean_f1"],
             "trial": metrics["trial_number"]
         })
 
-    # 3. Handle other data types (tables, etc.)
+    # 2. Log trial parameters as a table (not config)
+    if "trial_params" in metrics:
+        params_df = pd.DataFrame([metrics["trial_params"]])
+        processed_metrics["trial_parameters"] = wandb.Table(dataframe=params_df)
+
+    # 3. Handle other data types
     for key, value in metrics.items():
         if key in ["trial_params", "best_params", "mean_f1", "trial_number"]:
-            continue  # Skip already-processed items
-
+            continue
+        
         if isinstance(value, pd.DataFrame):
             df = value.sample(frac=1).head(sample_size).astype(str)
             processed_metrics[key] = wandb.Table(dataframe=df)
