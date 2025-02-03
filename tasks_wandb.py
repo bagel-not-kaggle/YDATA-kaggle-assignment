@@ -28,69 +28,52 @@ import pandas as pd
 import numpy as np
 import json
 
+import pandas as pd
+import numpy as np
+import wandb
+
 def wandb_callback(metrics: dict):
     """
     A single callback that can be used for both preprocessing and training.
     It checks if `metrics[key]` is a DataFrame, Series, or something else,
     and logs appropriately to Weights & Biases.
     """
-    sample_size = 15000  # Limit for large DataFrames
-    processed_metrics = {}  # Scalar values or metadata
-    table_metrics = {}  # Stores DataFrame metrics
+    sample_size = 15000
+    processed_metrics = {}
 
     for key, value in metrics.items():
-        print(f"Logging key: {key}, type: {type(value)}")  # Debugging output
-
-        # Handling DataFrames
         if isinstance(value, pd.DataFrame):
-            df = value.copy().head(sample_size)  # Limit rows for logging
+            df = value.copy().head(sample_size)  # Take a sample for logging
             
-            # Ensure categorical columns are properly formatted
+            # Process categorical and missing values
             for col in df.columns:
-                if df[col].dtype == 'object' or isinstance(df[col].dtype, pd.CategoricalDtype):
-                    df[col] = df[col].astype(str)
-                    if "missing" in df[col].values:
-                        df[col] = df[col].replace('missing', np.nan)
+                if df[col].dtype == "object" or isinstance(df[col].dtype, pd.CategoricalDtype):
+                    df[col] = df[col].astype(str)  # Convert categorical to string
+                    df[col] = df[col].replace("missing", np.nan)  # Replace "missing" with NaN
                 elif pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            table_metrics[key] = wandb.Table(dataframe=df)
+                    df[col] = pd.to_numeric(df[col], errors="coerce")  # Ensure numeric types
+                
+            processed_metrics[key] = wandb.Table(dataframe=df)
 
-            # Special handling for hyperparameter tuning logs
+            # If this is a trial_metrics DataFrame, log additional items
             if key == "trial_metrics" and "trial_number" in df.columns and "mean_f1_score" in df.columns:
                 wandb.log({
                     "trial_number": df["trial_number"].iloc[0],
                     "mean_f1_score": df["mean_f1_score"].iloc[0]
                 })
 
-        # Handling Series (convert to DataFrame)
         elif isinstance(value, pd.Series):
+            # Convert Series to DataFrame for logging
             series_df = value.to_frame()
-            table_metrics[key] = wandb.Table(dataframe=series_df)
-
-        # Handling Folds (List of Tuples)
-        elif key == "fold_datasets" and isinstance(value, list):
-            for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(value):
-                table_metrics[f"fold_{i}_train_X"] = wandb.Table(dataframe=X_train_fold.head(sample_size))
-                table_metrics[f"fold_{i}_train_y"] = wandb.Table(dataframe=y_train_fold.to_frame().head(sample_size))
-                table_metrics[f"fold_{i}_val_X"] = wandb.Table(dataframe=X_val_fold.head(sample_size))
-                table_metrics[f"fold_{i}_val_y"] = wandb.Table(dataframe=y_val_fold.to_frame().head(sample_size))
-
-        # Handling Scalars, Dicts, or JSON-serializable values
+            processed_metrics[key] = wandb.Table(dataframe=series_df)
+        
         else:
-            try:
-                json.dumps(value)  # Check if JSON serializable
-                processed_metrics[key] = value
-            except TypeError:
-                print(f"⚠️ Warning: {key} is not JSON serializable and will be skipped.")
+            # If it's just a scalar or dictionary, log it as-is
+            processed_metrics[key] = value
+    
+    # Log everything together
+    wandb.log(processed_metrics)
 
-    # Log scalar values first
-    if processed_metrics:
-        wandb.log(processed_metrics)
-
-    # Log tables separately
-    for key, table in table_metrics.items():
-        wandb.log({key: table})
 
 
 
