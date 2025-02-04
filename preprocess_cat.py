@@ -390,54 +390,81 @@ class DataPreprocessor:
     """
     def feature_generation(self, df: pd.DataFrame):
         df = df.copy()
-        # Generate time-based features
-        df['Day'] = df['DateTime'].dt.day
-        df['Hour'] = df['DateTime'].dt.hour
-        df['Minute'] = df['DateTime'].dt.minute
-        df['weekday'] = df['DateTime'].dt.weekday
 
-        cols_to_fill = ["Day", "Hour", "Minute", "weekday"]   
-        self.logger.info(f"Filling missing values for columns: {cols_to_fill}")
-        df = self.fill_with_ffill_bfill_user(df, cols_to_fill)
-        #(df.groupby("user_id",observed = True)[cols_to_fill]
-        #    .transform(lambda x: x.ffill().bfill())
-        #    .infer_objects(copy=False)
-        #)
-        colls_to_fill_nas = df[cols_to_fill].isna().sum()
-        if colls_to_fill_nas.sum() > 0:
-            self.logger.warning(f"Still missing values in columns: {colls_to_fill_nas.sum()}")
-            df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
-        self.logger.info("Filled missing values with forward/backward fill.")
-        # Fill missing values
-        if self.use_missing_with_mode:
-            df = self.fill_missing_values(df, use_mode=True)
+        df['day_of_week'] = df.DateTime.dt.dayofweek
+        df['hour'] = df.DateTime.dt.hour
 
-        # Generate campaign-based features
-        df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
-        df['campaign_duration'] = df['DateTime'] - df['start_date']
-        df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / (3600)
-        df['campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
-            df.groupby('campaign_id', observed=True)['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0])
-            )
-        df['campaign_duration_hours'] = pd.to_numeric(df['campaign_duration_hours'], errors='coerce')
-        self.logger.info(f'missing values in campaign_duration_hours: {df["campaign_duration_hours"].isna().sum()}')
+        # hours_since_campaign_start
+        first_time_campaign_map = df.sort_values(by="DateTime").groupby("campaign_id")["DateTime"].first().to_dict()
+        df['hours_since_campaign_start'] = (df.DateTime - df.campaign_id.map(first_time_campaign_map)).dt.total_seconds()//3600
+
+        # user_num_of_sessions
+        df['user_num_of_sessions']= df.groupby("user_id")["session_id"].transform('nunique')
+
+        # is_first_session (binary)
+        first_session_map = df.sort_values(by="DateTime").groupby("user_id")["session_id"].first().to_dict()
+        df["is_first_session"] = (df.session_id == df.user_id.map(first_session_map)).astype("int")
+
+        # user_num_of_days_in_webpage
+        df['user_num_of_days_in_webpage'] = df.groupby(["user_id", "webpage_id"])["day_of_week"].transform('nunique')
+
+        # user_session_order (starting from 1)
+        df['user_session_order'] = df.sort_values(by="DateTime").groupby('user_id')['DateTime'].rank(method='first')
+
+        # campaign_num_of_products
+        df['campaign_num_of_products'] = df.groupby("campaign_id")["product"].transform('nunique')
+
+        # campaign_num_of_product_categories
+        df['campaign_num_of_product_categories'] = df.groupby("campaign_id")["product_category_1"].transform('nunique')
+
+        # # Generate time-based features
+        # df['Day'] = df['DateTime'].dt.day
+        # df['Hour'] = df['DateTime'].dt.hour
+        # df['Minute'] = df['DateTime'].dt.minute
+        # df['weekday'] = df['DateTime'].dt.weekday
+
+        # cols_to_fill = ["Day", "Hour", "Minute", "weekday"]   
+        # self.logger.info(f"Filling missing values for columns: {cols_to_fill}")
+        # df = self.fill_with_ffill_bfill_user(df, cols_to_fill)
+        # #(df.groupby("user_id",observed = True)[cols_to_fill]
+        # #    .transform(lambda x: x.ffill().bfill())
+        # #    .infer_objects(copy=False)
+        # #)
+        # colls_to_fill_nas = df[cols_to_fill].isna().sum()
+        # if colls_to_fill_nas.sum() > 0:
+        #     self.logger.warning(f"Still missing values in columns: {colls_to_fill_nas.sum()}")
+        #     df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
+        # self.logger.info("Filled missing values with forward/backward fill.")
+        # # Fill missing values
+        # if self.use_missing_with_mode:
+        #     df = self.fill_missing_values(df, use_mode=True)
+
+        # # Generate campaign-based features
+        # df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
+        # df['campaign_duration'] = df['DateTime'] - df['start_date']
+        # df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / (3600)
+        # df['campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
+        #     df.groupby('campaign_id', observed=True)['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0])
+        #     )
+        # df['campaign_duration_hours'] = pd.to_numeric(df['campaign_duration_hours'], errors='coerce')
+        # self.logger.info(f'missing values in campaign_duration_hours: {df["campaign_duration_hours"].isna().sum()}')
         
 
-        # Drop unnecessary columns
-        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id', 'user_group_id'], inplace=True)
+        # # Drop unnecessary columns
+        # df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id', 'user_group_id'], inplace=True)
       
-        if self.catb:
-            self.determine_categorical_features(df)
-        # One-hot encoding if `get_dumm` is True
-        df['campaign_duration_hours'] = df.groupby('webpage_id', observed=True)['campaign_duration_hours'].transform(
-            lambda x: x.ffill().bfill() if not x.mode().empty else x.fillna(0))
+        # if self.catb:
+        #     self.determine_categorical_features(df)
+        # # One-hot encoding if `get_dumm` is True
+        # df['campaign_duration_hours'] = df.groupby('webpage_id', observed=True)['campaign_duration_hours'].transform(
+        #     lambda x: x.ffill().bfill() if not x.mode().empty else x.fillna(0))
         
 
-        self.logger.info(f'missing values in campaign_duration_hours after: {df["campaign_duration_hours"].isna().sum()}')
+        # self.logger.info(f'missing values in campaign_duration_hours after: {df["campaign_duration_hours"].isna().sum()}')
 
-        if self.use_dummies:
-            columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
-            df = pd.get_dummies(df, columns=columns_to_d)
+        # if self.use_dummies:
+        #     columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
+        #     df = pd.get_dummies(df, columns=columns_to_d)
 
         return df
        
