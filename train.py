@@ -302,8 +302,8 @@ class ModelTrainer:
                 #use get_dummies to convert categorical columns to numerical
                 columns_to_onehot = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
                 onehot = OneHotEncoder()
-                X_train = onehot.fit_transform(X_train[columns_to_onehot])
-                X_val = onehot.transform(X_val[columns_to_onehot])
+                X_train = onehot.fit_transform(X_train[columns_to_onehot]).toarray()  # Convert to dense
+                X_val = onehot.transform(X_val[columns_to_onehot]).toarray()          # Convert to dense
                 sgd = SGDClassifier(random_state=42, loss='log_loss', class_weight='balanced')
                 lr = LogisticRegression(random_state=42, C = 0.1, class_weight = 'balanced', solver = 'liblinear', max_iter = 1000)
                 cb = ComplementNB()
