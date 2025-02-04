@@ -77,7 +77,7 @@ class ModelTrainer:
                 "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.15),
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 13, 40),
                 "random_strength": trial.suggest_float("random_strength", 0.3, 5),
-                "rsm": trial.suggest_float("rsm", 0.6, 1.0),
+                "rsm": trial.suggest_float("rsm", 0.8, 1.0),
                 "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 5, 30),
                 #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
                 #"grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),

@@ -520,7 +520,7 @@ class DataPreprocessor:
         df_test = self.feature_generation(df_test)
         
         df_train_subset, df_train_val = train_test_split(
-        df_train, test_size=0.2, random_state=42, stratify=df_train["is_click"]
+        df_train, test_size=0.2, random_state=100, stratify=df_train["is_click"]
         )
 
         ### 🔹 Step 2: **Apply feature generation separately on both**
@@ -535,7 +535,7 @@ class DataPreprocessor:
         y_test = df_train_val["is_click"]
 
         # Create stratified folds for train set
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=55)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=100)
         fold_datasets = []
 
         for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
