@@ -2,6 +2,8 @@ import argparse
 import pandas as pd
 import logging
 from pathlib import Path
+#import onehot encoding
+from sklearn.preprocessing import OneHotEncoder
 from catboost import CatBoostClassifier
 from sklearn.feature_selection import RFECV
 from sklearn.metrics import f1_score
@@ -298,9 +300,10 @@ class ModelTrainer:
                 print(X_train.columns)
                 print(X_val.columns)
                 #use get_dummies to convert categorical columns to numerical
-                columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
-                X_train = pd.get_dummies(X_train, columns=columns_to_d)
-                X_val = pd.get_dummies(X_val, columns=columns_to_d)
+                columns_to_onehot = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
+                onehot = OneHotEncoder()
+                X_train = onehot.fit_transform(X_train[columns_to_onehot])
+                X_val = onehot.transform(X_val[columns_to_onehot])
                 sgd = SGDClassifier(random_state=42, loss='log_loss', class_weight='balanced')
                 lr = LogisticRegression(random_state=42, C = 0.1, class_weight = 'balanced', solver = 'liblinear', max_iter = 1000)
                 cb = ComplementNB()
