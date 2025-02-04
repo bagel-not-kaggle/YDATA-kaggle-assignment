@@ -360,8 +360,8 @@ class ModelTrainer:
         self.logger.info(f"Average F1 val score across folds: {avg_f1_val}")
         self.logger.info(f"Best F1 val score across folds: {best_f1}")
 
-        #if self.callback:
-         #   self.callback({"average_f1": avg_f1_val, "best_f1": best_f1,"fold_scores": fold_scores_val,
+        if self.callback:
+            self.callback({"average_f1": avg_f1_val, "best_f1": best_f1})
           #                  "fold_scores_train": fold_scores_train})
 
         self.logger.info(f"Loading test data from: {self.test_file}")
