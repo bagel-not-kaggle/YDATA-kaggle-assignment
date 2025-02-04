@@ -397,21 +397,27 @@ class DataPreprocessor:
     
 
     def add_target_encoding(self, df, cols_to_target_encode, subset="train"):
-        # Ensure we're working with copies
         df = df.copy()
 
         if subset == "train":
-            self.te = TargetEncoder(target_type='binary',
-                                    smooth='auto', cv=5, shuffle=True, random_state=42)
-            df_te = self.te.fit_transform(df[cols_to_target_encode], df["is_click"])
-
+            self.te = TargetEncoder()
+            # Transform returns numpy array, so we need to convert it back to DataFrame
+            df_te = pd.DataFrame(
+                self.te.fit_transform(df[cols_to_target_encode], df["is_click"]),
+                columns=cols_to_target_encode,
+                index=df.index
+            )
         elif subset == "test":
             if not hasattr(self, 'te'):
                 raise ValueError("Target Encoder has not been trained! Run on training data first.")
-            df_te = self.te.transform(df[cols_to_target_encode])
+            df_te = pd.DataFrame(
+                self.te.transform(df[cols_to_target_encode]),
+                columns=cols_to_target_encode,
+                index=df.index
+            )
 
-        # Append the encoded features back to the original dataframe
-        for i, orig_col in enumerate(cols_to_target_encode):
+        # Append the encoded features
+        for orig_col in cols_to_target_encode:
             df[f"{orig_col}_te"] = df_te[orig_col]
 
         return df
@@ -450,15 +456,15 @@ class DataPreprocessor:
         elif subset == "test":
             # Apply CTR mapping from training set
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
-            df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map)
-            df["product_ctr"] = df["product"].map(self.product_ctr_map)
-            df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map)
+            df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map).fillna(self.global_ctr)
+            df["product_ctr"] = df["product"].map(self.product_ctr_map).fillna(self.global_ctr)
+            df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map).fillna(self.global_ctr)
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
-            df["user_id_ctr"].fillna(self.global_ctr, inplace=True)
-            df["product_ctr"].fillna(self.global_ctr, inplace=True)
-            df["campaign_id_ctr"].fillna(self.global_ctr, inplace=True)
+            #df["user_id_ctr"].fillna(self.global_ctr, inplace=True)
+            #df["product_ctr"].fillna(self.global_ctr, inplace=True)
+            #df["campaign_id_ctr"].fillna(self.global_ctr, inplace=True)
 
             # Threshold to decide whether to apply CTR encoding
             #threshold = 0.05  # 5% of test set unique values should exist in train
