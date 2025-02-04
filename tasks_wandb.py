@@ -180,11 +180,11 @@ def preprocess_and_train_flow(
         wandb.config.update(best_params)
 
     if train:
-        if best_params is None and params:  # Load from JSON if not tuning now
-            with open(params, "r") as f:
-                best_params = json.load(f)
+        #if best_params is None and params:  # Load from JSON if not tuning now
+            #with open(params, "r") as f:
+                #best_params = json.load(f)
 
-    train_model(best_params, folds_dir, test_file, model_name, wandb_callback, run_id)
+        train_model(best_params, folds_dir, test_file, model_name, wandb_callback, run_id)
 
 
     wandb.finish()
