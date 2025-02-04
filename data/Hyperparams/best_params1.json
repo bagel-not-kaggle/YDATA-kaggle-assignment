@@ -1,9 +1,18 @@
 {
-    "depth": 4,
-    "learning_rate": 0.09000018051227325,
-    "l2_leaf_reg": 33.67815971728025,
-    "random_strength": 0.42834861177072037,
+    "depth": 10,
+    "learning_rate": 0.13812619838945514,
+    "l2_leaf_reg": 19.703216438242954,
+    "random_strength": 3.2407649261628353,
+    "rsm": 0.6148794492850639,
+    "leaf_estimation_iterations": 17,
+    "bootstrap_type": "Bayesian",
+    "bagging_temperature": 1.4180337903241234,
     "grow_policy": "Depthwise",
-    "bootstrap_type": "MVS",
-    "min_data_in_leaf": 6
+    "min_data_in_leaf": 9,
+    "iterations": 1000,
+    "eval_metric": "F1",
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
 }
