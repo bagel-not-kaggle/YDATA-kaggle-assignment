@@ -297,8 +297,8 @@ class ModelTrainer:
             elif self.model_name == "stacking":
                 X_train = self.fill_missing_with_mode(X_train)
                 X_val = self.fill_missing_with_mode(X_val)
-                print(X_train.isnull().sum().sum())
-                print(X_val.columns.isnull().sum().sum())   
+                print("X_train", X_train.isnull().sum().sum())
+                print("X_val",X_val.columns.isnull().sum().sum())   
                 #use get_dummies to convert categorical columns to numerical
                 columns_to_onehot = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
                 onehot = OneHotEncoder()
