@@ -177,14 +177,16 @@ def preprocess_and_train_flow(
 
     if tune:
         best_params = tune_hyperparameters(base_trainer, folds_dir, n_trials, run_id)
+        best_params_path = Path(folds_dir) / f"best_params{run_id}.json"
         wandb.config.update(best_params)
+
 
     if train:
         #if best_params is None and params:  # Load from JSON if not tuning now
             #with open(params, "r") as f:
                 #best_params = json.load(f)
 
-        train_model(best_params, folds_dir, test_file, model_name, wandb_callback, run_id)
+        train_model(best_params_path, folds_dir, test_file, model_name, wandb_callback, run_id)
 
 
     wandb.finish()
@@ -221,5 +223,5 @@ if __name__ == "__main__":
         preprocess=args.preprocess,
         tune=args.tune,
         train=args.train,
-        params=f"data/processed/best_params{args.run_id}.json"
+        params=args.params
     )
