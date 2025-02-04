@@ -174,7 +174,7 @@ def preprocess_and_train_flow(
     )
     
     best_params = None
-
+    best_params_path = params
     if tune:
         best_params = tune_hyperparameters(base_trainer, folds_dir, n_trials, run_id)
         
