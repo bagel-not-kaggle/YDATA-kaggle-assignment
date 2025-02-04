@@ -401,7 +401,7 @@ class DataPreprocessor:
         df = df.copy()
 
         if subset == "train":
-            self.te = TargetEncoder(cols=cols_to_target_encode, target_type='binary',
+            self.te = TargetEncoder(target_type='binary',
                                     smooth='auto', cv=5, shuffle=True, random_state=42)
             df_te = self.te.fit_transform(df[cols_to_target_encode], df["is_click"])
 
