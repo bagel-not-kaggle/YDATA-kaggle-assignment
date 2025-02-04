@@ -376,7 +376,7 @@ class DataPreprocessor:
     def smooth_ctr(self, data, target_col, alpha=10):
         """Smooths the CTR by adding a prior."""
         # 1) Compute clicks and views
-        clicks = data.groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
+        clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
         views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
         
         # 2) Global CTR
@@ -517,7 +517,7 @@ class DataPreprocessor:
             df_test = self.fill_missing_values(df_test)
 
         #df_train = self.feature_generation(df_train)
-        df_test = self.feature_generation(df_test)
+        df_test = self.feature_generation(df_test, subset="test")
         
         df_train_subset, df_train_val = train_test_split(
         df_train, test_size=0.2, random_state=100, stratify=df_train["is_click"]
@@ -525,8 +525,7 @@ class DataPreprocessor:
 
         ### 🔹 Step 2: **Apply feature generation separately on both**
         df_train_subset = self.feature_generation(df_train_subset)
-        df_train_val = self.feature_generation(df_train_val)
-
+        df_train_val = self.feature_generation(df_train_val, subset="test")
         ### 🔹 Step 3: **Extract X_train, y_train from df_train_subset & X_test, y_test from df_train_val**
         X_train = df_train_subset.drop(columns=["is_click"])
         y_train = df_train_subset["is_click"]
