@@ -177,9 +177,10 @@ def preprocess_and_train_flow(
 
     if tune:
         best_params = tune_hyperparameters(base_trainer, folds_dir, n_trials, run_id)
-        best_params_path = Path(folds_dir) / f"best_params{run_id}.json"
+        
+        best_params_path = f'data/Hyperparams/best_params{run_id}.json'
         wandb.config.update(best_params)
-
+        
 
     if train:
         #if best_params is None and params:  # Load from JSON if not tuning now
