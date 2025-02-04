@@ -378,6 +378,8 @@ class ModelTrainer:
         
 
         self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
+        X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
+        y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
         y_test_pred = best_model.predict(X_test)
         test_f1 = f1_score(y_test, y_test_pred)
         #y_test_pred_1st = best_model.predict(X_test_1st)
