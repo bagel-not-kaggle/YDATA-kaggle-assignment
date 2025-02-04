@@ -4,6 +4,7 @@ from pathlib import Path
 import logging
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np
+from sklearn.preprocessing import TargetEncoder
 
 class DataPreprocessor:
     def __init__(
@@ -393,16 +394,41 @@ class DataPreprocessor:
         data[f'{target_col}_ctr'].fillna(global_ctr, inplace=True)
         
         return data
+    
+
+    def add_target_encoding(self, df, cols_to_target_encode, subset="train"):
+        # Ensure we're working with copies
+        df = df.copy()
+
+        if subset == "train":
+            self.te = TargetEncoder(cols=cols_to_target_encode, target_type='binary',
+                                    smooth='auto', cv=5, shuffle=True, random_state=42)
+            df_te = self.te.fit_transform(df[cols_to_target_encode], df["is_click"])
+
+        elif subset == "test":
+            if not hasattr(self, 'te'):
+                raise ValueError("Target Encoder has not been trained! Run on training data first.")
+            df_te = self.te.transform(df[cols_to_target_encode])
+
+        # Append the encoded features back to the original dataframe
+        for i, orig_col in enumerate(cols_to_target_encode):
+            df[f"{orig_col}_te"] = df_te[orig_col]
+
+        return df
+
 
 
     def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
         df = df.copy()
+        
 
         if subset == "train":
+            cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
             # Compute smoothed CTR for the training dataset
             df = self.smooth_ctr(df, "user_id")
             df = self.smooth_ctr(df, "product")
             df = self.smooth_ctr(df, "campaign_id")
+            df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
 
             # Store CTR mappings for use in test set
             self.user_id_ctr_map = df.groupby("user_id")["user_id_ctr"].mean().to_dict()
@@ -423,9 +449,11 @@ class DataPreprocessor:
 
         elif subset == "test":
             # Apply CTR mapping from training set
+            cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
             df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map)
             df["product_ctr"] = df["product"].map(self.product_ctr_map)
             df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map)
+            df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
             df["user_id_ctr"].fillna(self.global_ctr, inplace=True)
