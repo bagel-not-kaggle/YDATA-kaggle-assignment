@@ -73,10 +73,10 @@ class ModelTrainer:
             # Define hyperparameters to optimize
             params = {
                 
-                "depth": trial.suggest_int("depth", 4, 10),
+                "depth": trial.suggest_int("depth", 4, 12),
                 "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.15),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 13, 35),
-                "random_strength": trial.suggest_float("random_strength", 0.5, 5),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 13, 25),
+                "random_strength": trial.suggest_float("random_strength", 1.5, 5),
                 "rsm": trial.suggest_float("rsm", 0.6, 1.0),
                 "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 5, 25),
                 #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
@@ -96,7 +96,7 @@ class ModelTrainer:
                 params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.6, 1.5)
                 params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"])
             elif params["bootstrap_type"] == "Bernoulli":
-                params["subsample"] = trial.suggest_float("subsample", 0.6, .9)
+                params["subsample"] = trial.suggest_float("subsample", 0.5, 0.9)
                 params["grow_policy"] = "SymmetricTree"
 
             # After setting grow_policy, we can check if we need min_data_in_leaf
