@@ -433,16 +433,16 @@ class DataPreprocessor:
             df["campaign_id_ctr"].fillna(self.global_ctr, inplace=True)
 
             # Threshold to decide whether to apply CTR encoding
-            threshold = 0.05  # 5% of test set unique values should exist in train
-            features_to_check = ["user_id", "product", "campaign_id"]
+            #threshold = 0.05  # 5% of test set unique values should exist in train
+            #features_to_check = ["user_id", "product", "campaign_id"]
 
-            for feature in features_to_check:
-                test_unique = df[feature].nunique()
-                train_unique = len(getattr(self, f"{feature}_ctr_map", {}))
+            #for feature in features_to_check:
+             #   test_unique = df[feature].nunique()
+              #  train_unique = len(getattr(self, f"{feature}_ctr_map", {}))
 
-                if train_unique / test_unique < threshold:
-                    self.logger.warning(f"Too many unseen values in {feature}, removing {feature}_ctr")
-                    df.drop(columns=[f"{feature}_ctr"], inplace=True, errors="ignore")
+               # if test_unique > 0 and train_unique > 0 and test_unique / train_unique < threshold:
+                #    self.logger.warning(f"Too many unseen values in {feature}, removing {feature}_ctr")
+                 #   df.drop(columns=[f"{feature}_ctr"], inplace=True, errors="ignore")
 
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
