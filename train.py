@@ -297,6 +297,7 @@ class ModelTrainer:
             elif self.model_name == "stacking":
                 X_train = self.fill_missing_with_mode(X_train)
                 X_val = self.fill_missing_with_mode(X_val)
+                X_test = self.fill_missing_with_mode(X_test)
                 print("X_train", X_train.isnull().sum().sum())
                 print("X_val",X_val.columns.isnull().sum().sum())   
                 #use get_dummies to convert categorical columns to numerical
@@ -304,6 +305,7 @@ class ModelTrainer:
                 onehot = OneHotEncoder()
                 X_train = onehot.fit_transform(X_train[columns_to_onehot]).toarray()  # Convert to dense
                 X_val = onehot.transform(X_val[columns_to_onehot]).toarray()          # Convert to dense
+                X_test = onehot.transform(X_test[columns_to_onehot]).toarray()        # Convert to dense
                 sgd = SGDClassifier(random_state=42, loss='log_loss', class_weight='balanced')
                 lr = LogisticRegression(random_state=42, C = 0.1, class_weight = 'balanced', solver = 'liblinear', max_iter = 1000)
                 cb = ComplementNB()
