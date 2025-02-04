@@ -297,6 +297,8 @@ class ModelTrainer:
             elif self.model_name == "stacking":
                 X_train = self.fill_missing_with_mode(X_train)
                 X_val = self.fill_missing_with_mode(X_val)
+                X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
+                y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
                 X_test = self.fill_missing_with_mode(X_test)
                 print("X_train", X_train.isnull().sum().sum())
                 print("X_val",X_val.columns.isnull().sum().sum())   
@@ -370,8 +372,8 @@ class ModelTrainer:
           #                  "fold_scores_train": fold_scores_train})
 
         self.logger.info(f"Loading test data from: {self.test_file}")
-        X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
-        y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
+        
+        
         #X_test_1st = pd.read_pickle(self.folds_dir / "X_test_DoNotTouch.pkl")
         
 
