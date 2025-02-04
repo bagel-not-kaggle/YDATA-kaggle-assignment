@@ -516,8 +516,7 @@ class DataPreprocessor:
             df_train = self.fill_missing_values(df_train)
             df_test = self.fill_missing_values(df_test)
 
-        #df_train = self.feature_generation(df_train)
-        df_test = self.feature_generation(df_test, subset="test")
+        
         
         df_train_subset, df_train_val = train_test_split(
         df_train, test_size=0.2, random_state=100, stratify=df_train["is_click"]
@@ -526,6 +525,7 @@ class DataPreprocessor:
         ### 🔹 Step 2: **Apply feature generation separately on both**
         df_train_subset = self.feature_generation(df_train_subset)
         df_train_val = self.feature_generation(df_train_val, subset="test")
+        df_test = self.feature_generation(df_test, subset="test")
         ### 🔹 Step 3: **Extract X_train, y_train from df_train_subset & X_test, y_test from df_train_val**
         X_train = df_train_subset.drop(columns=["is_click"])
         y_train = df_train_subset["is_click"]
