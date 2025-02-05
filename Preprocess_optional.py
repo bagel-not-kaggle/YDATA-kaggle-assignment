@@ -394,20 +394,25 @@ class DataPreprocessor:
                 self.global_ctrs[col] = global_ctr
                 
                 # Calculate smoothed CTR
+                # 1. Calculate smoothed CTR
                 smoothed_ctr = ((clicks + alpha * global_ctr) / (views + alpha))
-                self.ctr_maps[col] = smoothed_ctr.to_dict()
-                
-                # Add feature to dataframe
+
+                # 2. Create the column directly
+                df[f'{col}_smooth'] = df[col].map(smoothed_ctr)
+
+                # 3. Take the mean and store in mapping
+                self.ctr_maps[col] = df.groupby(col,observed = True)[f'{col}_smooth'].mean().to_dict()
+
+                # 4. Map the averaged values
                 df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
-                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(global_ctr)  
+ 
         
         elif subset == "test":
             if not hasattr(self, 'ctr_maps'):
                 raise ValueError("CTR mappings not computed! Run on training data first.")
             
             for col in cols_to_encode:
-                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
-                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(self.global_ctrs[col])
+                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col]).fillna(self.global_ctrs[col])
         
         return df
 
@@ -467,10 +472,10 @@ class DataPreprocessor:
                 # Blended CTR
                 blended_ctr = (views / (views + alpha)) * local_ctr + (alpha / (views + alpha)) * global_ctr
 
-                self.ctr_maps_b[col] = blended_ctr.to_dict()
+                self.ctr_maps_b[col] = blended_ctr.mean().to_dict()
 
                 # Map onto df
-                df[f'{col}_blend'] = df[col].map(self.ctr_maps_b[col])
+                df[f'{col}_blend'] = df[col].map(self.ctr_maps_b[col]).fillna(global_ctr)
                 df[f'{col}_blend'] = df[f'{col}_blend'].fillna(global_ctr)
 
         elif subset == "test":
