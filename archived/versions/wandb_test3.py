@@ -1,7 +1,7 @@
 import wandb
 from prefect import task, flow
 from pathlib import Path
-from preprocess_cat import DataPreprocessor
+from archived.versions.preprocess_cat import DataPreprocessor
 import argparse
 import pandas as pd
 import numpy as np

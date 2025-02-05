@@ -374,31 +374,46 @@ class DataPreprocessor:
 
     """
 
-    def smooth_ctr(self, data, target_col, alpha=10):
-        """Smooths the CTR by adding a prior."""
-        # 1) Compute clicks and views
-        clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
-        views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
+    def add_smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10):
+        """Adds smoothed CTR features with train/test handling."""
+        df = df.copy()
+        self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_encode}")
         
-        # 2) Global CTR
-        global_ctr = data['is_click'].mean()
+        if subset == "train":
+            self.ctr_maps = {}  # Store mappings for test set
+            self.global_ctrs = {}  # Store global CTRs
+            
+            for col in cols_to_encode:
+                # Compute clicks and views
+                clicks = df[df['is_click'] != -1].groupby(col)['is_click'].sum()
+                views = df.groupby(col)['session_id'].count()
+                
+                # Calculate global CTR
+                global_ctr = df['is_click'].mean()
+                self.global_ctrs[col] = global_ctr
+                
+                # Calculate smoothed CTR
+                smoothed_ctr = ((clicks + alpha * global_ctr) / (views + alpha))
+                self.ctr_maps[col] = smoothed_ctr.to_dict()
+                
+                # Add feature to dataframe
+                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
+                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(global_ctr)  # <-- fixed line
         
-        # 3) Calculate smoothed CTR
-        #    (clicks + alpha * global_ctr) / (views + alpha)
-        ctr = ((clicks + alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctr')
+        elif subset == "test":
+            if not hasattr(self, 'ctr_maps'):
+                raise ValueError("CTR mappings not computed! Run on training data first.")
+            
+            for col in cols_to_encode:
+                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
+                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(self.global_ctrs[col])
         
-        # 4) Merge back into data
-        data = data.merge(ctr, how='left', on=target_col)
-        
-        # 5) Fill missing CTR with global CTR
-        data[f'{target_col}_ctr'].fillna(global_ctr, inplace=True)
-        
-        return data
-    
+        return df
 
+
+    
     def add_target_encoding(self, df, cols_to_target_encode, subset="train"):
         df = df.copy()
-
         if subset == "train":
             self.te = TargetEncoder()
             # Transform returns numpy array, so we need to convert it back to DataFrame
@@ -421,45 +436,80 @@ class DataPreprocessor:
             df[f"{orig_col}_te"] = df_te[orig_col]
 
         return df
+    
+    def add_blended_ctr(self, df, cols_to_encode, subset="train", alpha=10):
+        """
+        Adds blended CTR features (weighted average of local CTR and global CTR)
+        with train/test handling.
+        """
+        df = df.copy()
+        self.logger.info(f"Computing blended CTRs for columns: {cols_to_encode}")
+
+        if subset == "train":
+            self.ctr_maps_b = {}
+            self.global_ctrs_b = {}  # separate from smooth if you wish
+
+            for col in cols_to_encode:
+                # Count clicks and views per group
+                clicks = df[df['is_click'] != -1].groupby(col)['is_click'].sum()
+                views = df.groupby(col)['session_id'].count()
+
+                # Global CTR
+                global_ctr = df['is_click'].mean()
+                self.global_ctrs_b[col] = global_ctr
+
+                # Local CTR for each group
+                local_ctr = clicks / views
+                local_ctr = local_ctr.fillna(0)
+
+                # Blended CTR
+                blended_ctr = (views / (views + alpha)) * local_ctr + (alpha / (views + alpha)) * global_ctr
+
+                self.ctr_maps_b[col] = blended_ctr.to_dict()
+
+                # Map onto df
+                df[f'{col}_blend'] = df[col].map(self.ctr_maps_b[col])
+                df[f'{col}_blend'] = df[f'{col}_blend'].fillna(global_ctr)
+
+        elif subset == "test":
+            if not hasattr(self, 'ctr_maps_b'):
+                raise ValueError("CTR mappings not computed! Run on training data first.")
+
+            for col in cols_to_encode:
+                df[f'{col}_blend'] = df[col].map(self.ctr_maps_b[col])
+                df[f'{col}_blend'] = df[f'{col}_blend'].fillna(self.global_ctrs_b[col])
+
+        return df
+
+
+
 
 
 
     def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
         df = df.copy()
-        
+        df['DateTime'] = pd.to_datetime(df['DateTime'])
 
         if subset == "train":
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
+            self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_target_encode}")
             # Compute smoothed CTR for the training dataset
-            df = self.smooth_ctr(df, "user_id")
-            df = self.smooth_ctr(df, "product")
-            df = self.smooth_ctr(df, "campaign_id")
+            df = self.add_smooth_ctr(df, cols_to_target_encode, subset="train")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
+            df = self.add_blended_ctr(df, cols_to_target_encode, subset="train")
 
-            # Store CTR mappings for use in test set
-            self.user_id_ctr_map = df.groupby("user_id")["user_id_ctr"].mean().to_dict()
-            self.product_ctr_map = df.groupby("product")["product_ctr"].mean().to_dict()
-            self.campaign_ctr_map = df.groupby("campaign_id")["campaign_id_ctr"].mean().to_dict()
+           
+            
 
-            # Compute overall CTR for missing value handling
-            self.global_ctr = df["is_click"].mean()
-
-            # Handle missing values
-            colls_to_check = ['user_id_ctr', 'product_ctr', 'campaign_id_ctr']
-            self.logger.info(f'Missing values in {colls_to_check} before: {df[colls_to_check].isna().sum()}')
-
-            if df[colls_to_check].isna().sum().sum() > 0:
-                self.logger.warning(f'Filling missing values in {colls_to_check}')
-                df[colls_to_check] = df[colls_to_check].fillna(self.global_ctr)
-                self.logger.info(f'Missing values in {colls_to_check} after: {df[colls_to_check].isna().sum()}')
+            
 
         elif subset == "test":
             # Apply CTR mapping from training set
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
-            df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map).fillna(self.global_ctr)
-            df["product_ctr"] = df["product"].map(self.product_ctr_map).fillna(self.global_ctr)
-            df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map).fillna(self.global_ctr)
+            self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_target_encode}")
+            df = self.add_smooth_ctr(df, cols_to_target_encode, subset="test")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
+            df = self.add_blended_ctr(df, cols_to_target_encode, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
             #df["user_id_ctr"].fillna(self.global_ctr, inplace=True)
@@ -539,8 +589,8 @@ class DataPreprocessor:
         self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum()}")
 
         df_train, df_test = self.split_to_train_test(df)
-        df_train["DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
-        df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
+        df_train.loc[:, "DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
+        df_test.loc[:, "DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
         if self.remove_outliers:
             df_train = self.remove_outliers(df_train)
