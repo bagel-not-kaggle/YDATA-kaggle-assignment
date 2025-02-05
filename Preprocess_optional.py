@@ -385,11 +385,12 @@ class DataPreprocessor:
             
             for col in cols_to_encode:
                 # Compute clicks and views
-                clicks = df[df['is_click'] != -1].groupby(col)['is_click'].sum()
-                views = df.groupby(col)['session_id'].count()
+                df_train = df[df['is_click'] != -1].copy()
+                clicks = df_train.groupby(col)['is_click'].sum()
+                views = df_train.groupby(col)['session_id'].count()
                 
                 # Calculate global CTR
-                global_ctr = df['is_click'].mean()
+                global_ctr = df_train['is_click'].mean()
                 self.global_ctrs[col] = global_ctr
                 
                 # Calculate smoothed CTR
@@ -398,7 +399,7 @@ class DataPreprocessor:
                 
                 # Add feature to dataframe
                 df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
-                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(global_ctr)  # <-- fixed line
+                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(global_ctr)  
         
         elif subset == "test":
             if not hasattr(self, 'ctr_maps'):
@@ -451,11 +452,12 @@ class DataPreprocessor:
 
             for col in cols_to_encode:
                 # Count clicks and views per group
-                clicks = df[df['is_click'] != -1].groupby(col)['is_click'].sum()
-                views = df.groupby(col)['session_id'].count()
+                df_train = df[df['is_click'] != -1].copy()
+                clicks = df_train.groupby(col)['is_click'].sum()
+                views = df_train.groupby(col)['session_id'].count()
 
                 # Global CTR
-                global_ctr = df['is_click'].mean()
+                global_ctr = df_train['is_click'].mean()
                 self.global_ctrs_b[col] = global_ctr
 
                 # Local CTR for each group
