@@ -374,7 +374,7 @@ class DataPreprocessor:
 
     """
 
-    def add_smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10):
+    def add_smooth_ctr(self, df, cols_to_encode, subset="train", alpha=50):
         """Adds smoothed CTR features with train/test handling."""
         df = df.copy()
         self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_encode}")
@@ -438,7 +438,7 @@ class DataPreprocessor:
 
         return df
     
-    def add_blended_ctr(self, df, cols_to_encode, subset="train", alpha=20):
+    def add_blended_ctr(self, df, cols_to_encode, subset="train", alpha=50):
         """
         Adds blended CTR features (weighted average of local CTR and global CTR)
         with train/test handling.
