@@ -377,7 +377,7 @@ class DataPreprocessor:
     def smooth_ctr(self, data, target_col, alpha=10):
         """Smooths the CTR by adding a prior."""
         # 1) Compute clicks and views
-        clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
+        #clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
         views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
         
         # 2) Global CTR
@@ -385,7 +385,7 @@ class DataPreprocessor:
         
         # 3) Calculate smoothed CTR
         #    (clicks + alpha * global_ctr) / (views + alpha)
-        ctr = ((clicks + alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctr')
+        ctr = ((alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctr')
         
         # 4) Merge back into data
         data = data.merge(ctr, how='left', on=target_col)
@@ -434,7 +434,7 @@ class DataPreprocessor:
             for col in cols_to_encode:
                 # Compute clicks and views
                 df_train = df[df['is_click'] != -1].copy()
-                clicks = df_train.groupby(col)['is_click'].sum()
+                #clicks = df_train.groupby(col)['is_click'].sum()
                 views = df_train.groupby(col)['session_id'].count()
                 
                 # Calculate global CTR
@@ -442,7 +442,7 @@ class DataPreprocessor:
                 self.global_ctrs[col] = global_ctr
                 
                 # Calculate smoothed CTR
-                smoothed_ctr = ((clicks + alpha * global_ctr) / (views + alpha))
+                smoothed_ctr = ((alpha * global_ctr) / (views + alpha))
                 self.ctr_maps[col] = smoothed_ctr.to_dict()
                 
                 # Add feature to dataframe
