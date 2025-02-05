@@ -421,6 +421,43 @@ class DataPreprocessor:
             df[f"{orig_col}_te"] = df_te[orig_col]
 
         return df
+    
+    def add_smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10):
+        """Adds smoothed CTR features with train/test handling."""
+        df = df.copy()
+        self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_encode}")
+        
+        if subset == "train":
+            self.ctr_maps = {}  # Store mappings for test set
+            self.global_ctrs = {}  # Store global CTRs
+            
+            for col in cols_to_encode:
+                # Compute clicks and views
+                df_train = df[df['is_click'] != -1].copy()
+                clicks = df_train.groupby(col)['is_click'].sum()
+                views = df_train.groupby(col)['session_id'].count()
+                
+                # Calculate global CTR
+                global_ctr = df_train['is_click'].mean()
+                self.global_ctrs[col] = global_ctr
+                
+                # Calculate smoothed CTR
+                smoothed_ctr = ((clicks + alpha * global_ctr) / (views + alpha))
+                self.ctr_maps[col] = smoothed_ctr.to_dict()
+                
+                # Add feature to dataframe
+                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
+                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(global_ctr)  
+        
+        elif subset == "test":
+            if not hasattr(self, 'ctr_maps'):
+                raise ValueError("CTR mappings not computed! Run on training data first.")
+            
+            for col in cols_to_encode:
+                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
+                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(self.global_ctrs[col])
+        
+        return df
 
 
 
@@ -430,35 +467,20 @@ class DataPreprocessor:
 
         if subset == "train":
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
+            cols_to_ctr = ['user_id', 'product', 'campaign_id']
+            self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_target_encode}")
             # Compute smoothed CTR for the training dataset
-            df = self.smooth_ctr(df, "user_id")
-            df = self.smooth_ctr(df, "product")
-            df = self.smooth_ctr(df, "campaign_id")
+            df = self.add_smooth_ctr(df, cols_to_ctr, subset="train")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
 
-            # Store CTR mappings for use in test set
-            self.user_id_ctr_map = df.groupby("user_id")["user_id_ctr"].mean().to_dict()
-            self.product_ctr_map = df.groupby("product")["product_ctr"].mean().to_dict()
-            self.campaign_ctr_map = df.groupby("campaign_id")["campaign_id_ctr"].mean().to_dict()
-
-            # Compute overall CTR for missing value handling
-            self.global_ctr = df["is_click"].mean()
-
-            # Handle missing values
-            colls_to_check = ['user_id_ctr', 'product_ctr', 'campaign_id_ctr']
-            self.logger.info(f'Missing values in {colls_to_check} before: {df[colls_to_check].isna().sum()}')
-
-            if df[colls_to_check].isna().sum().sum() > 0:
-                self.logger.warning(f'Filling missing values in {colls_to_check}')
-                df[colls_to_check] = df[colls_to_check].fillna(self.global_ctr)
-                self.logger.info(f'Missing values in {colls_to_check} after: {df[colls_to_check].isna().sum()}')
+           
 
         elif subset == "test":
             # Apply CTR mapping from training set
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
-            df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map).fillna(self.global_ctr)
-            df["product_ctr"] = df["product"].map(self.product_ctr_map).fillna(self.global_ctr)
-            df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map).fillna(self.global_ctr)
+            cols_to_ctr = ['user_id', 'product', 'campaign_id']
+            self.logger.info(f"Applying smoothed CTRs for columns: {cols_to_target_encode}")
+            df = self.add_smooth_ctr(df, cols_to_ctr, subset="test")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
