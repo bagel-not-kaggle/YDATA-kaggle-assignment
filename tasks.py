@@ -8,7 +8,7 @@ from prefect import task, flow
 from sklearn.model_selection import train_test_split
 import wandb
 
-from preprocess_cat import DataPreprocessor
+from archived.versions.preprocess_cat import DataPreprocessor
 from train import ModelTrainer
 from predict import predict
 
