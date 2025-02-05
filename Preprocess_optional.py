@@ -438,7 +438,7 @@ class DataPreprocessor:
 
         return df
     
-    def add_blended_ctr(self, df, cols_to_encode, subset="train", alpha=10):
+    def add_blended_ctr(self, df, cols_to_encode, subset="train", alpha=20):
         """
         Adds blended CTR features (weighted average of local CTR and global CTR)
         with train/test handling.
@@ -550,7 +550,7 @@ class DataPreprocessor:
         df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / 3600
 
         # Fill campaign duration missing values
-        df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr), inplace=True)
+        df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else 0), inplace=True)
 
         # Drop unnecessary columns
         df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True, errors="ignore")
@@ -585,13 +585,15 @@ class DataPreprocessor:
 
         df_test = self.replace_test_user_depth_to_training(df_train, df_test)
 
-        df = self.concat_train_test(df_train, df_test)
+        #df = self.concat_train_test(df_train, df_test)
 
-        self.logger.info(f"Total number of missing values in the joint dataset: {df.isna().sum()}")
-        df = self.deterministic_fill(df)
-        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum()}")
+        self.logger.info(f"Total number of missing values in the joint dataset: {df_train.isna().sum()}")
+        df_train = self.deterministic_fill(df_train)
 
-        df_train, df_test = self.split_to_train_test(df)
+        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df_test.isna().sum()}")
+        df_test = self.deterministic_fill(df_test)
+
+        #df_train, df_test = self.split_to_train_test(df)
         df_train.loc[:, "DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
         df_test.loc[:, "DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
