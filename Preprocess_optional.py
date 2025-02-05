@@ -498,7 +498,7 @@ class DataPreprocessor:
             self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_target_encode}")
             # Compute smoothed CTR for the training dataset
             df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
-            df = self.add_smooth_ctr(df, cols_to_ctr, subset="train")
+            #df = self.add_smooth_ctr(df, cols_to_ctr, subset="train")
             #df = self.add_blended_ctr(df, cols_to_ctr, subset="train")
 
            
@@ -511,7 +511,7 @@ class DataPreprocessor:
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
             self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_target_encode}")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
-            df = self.add_smooth_ctr(df, cols_to_ctr, subset="test")
+            #df = self.add_smooth_ctr(df, cols_to_ctr, subset="test")
             #df = self.add_blended_ctr(df, cols_to_ctr, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
