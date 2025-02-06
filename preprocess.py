@@ -397,34 +397,43 @@ class DataPreprocessor:
         return data
     
     def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10):
-
+        """
+        Compute smoothed CTR features for each column in cols_to_encode.
+        In the 'train' subset, the CTR is computed by merging on the feature,
+        and the resulting mapping (a dict) is stored for later use.
+        In the 'test' subset, the stored mapping is used.
+        """
         df = df.copy()
-        self.logger.info(f"Computing smoothed CTRs for columns: {cols_to_encode}")
-        
         if subset == "train":
+            # Initialize mapping dictionaries
             self.ctr_maps = {}
             self.global_ctrs = {}
-            
             for col in cols_to_encode:
-                df_train = df[df['is_click'] != -1].copy()
-                views = df_train.groupby(col)['session_id'].count()
-                global_ctr = df_train['is_click'].mean()
+                # Compute the number of views per value in col
+                views = df.groupby(col)['session_id'].count()
+                # Global CTR on the provided training subset
+                global_ctr = df['is_click'].mean()
                 self.global_ctrs[col] = global_ctr
+
+                # Compute smoothed CTR using the formula: (alpha*global_ctr) / (views + alpha)
+                smoothed_ctr = ((alpha * global_ctr) / (views + alpha)).rename(f'{col}_ctrS')
                 
-                smoothed_ctr = ((alpha * global_ctr) / (views + alpha))
-                df[f'{col}_smooth'] = df[col].map(smoothed_ctr)
-                self.ctr_maps[col] = df.groupby(col)[f'{col}_smooth'].mean().to_dict()
-                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col]).fillna(global_ctr)
-        
+                # Merge the smoothed CTR back into the dataframe using the feature value as key
+                df = df.merge(smoothed_ctr, how="left", left_on=col, right_index=True)
+                df[f'{col}_ctrS'].fillna(global_ctr, inplace=True)
+                
+                # Save the mapping dictionary for use in test data
+                self.ctr_maps[col] = smoothed_ctr.to_dict()
+            return df
+
         elif subset == "test":
             if not hasattr(self, 'ctr_maps'):
                 raise ValueError("CTR mappings not computed! Run on training data first.")
-            
             for col in cols_to_encode:
-                df[f'{col}_smooth'] = df[col].map(self.ctr_maps[col])
-                df[f'{col}_smooth'] = df[f'{col}_smooth'].fillna(self.global_ctrs[col])
-        
-        return df
+                global_ctr = self.global_ctrs[col]
+                df[f'{col}_ctrS'] = df[col].map(self.ctr_maps[col]).fillna(global_ctr)
+            return df
+
 
     
 
