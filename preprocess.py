@@ -451,7 +451,7 @@ class DataPreprocessor:
             cols_to_smooth = ['user_id', 'product', 'campaign_id']
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
             # Compute smoothed CTR for the training dataset
-            df = self.smooth_ctr(df, cols_to_smooth, subset="train")
+            df = self.smooth_ctr(df, cols_to_target_encode, subset="train")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
 
 
@@ -459,7 +459,7 @@ class DataPreprocessor:
             # Apply CTR mapping from training set
             cols_to_smooth = ['user_id', 'product', 'campaign_id']
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
-            df = self.smooth_ctr(df, cols_to_smooth, subset="test")
+            df = self.smooth_ctr(df, cols_to_target_encode, subset="test")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
