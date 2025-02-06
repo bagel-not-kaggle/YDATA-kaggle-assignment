@@ -374,7 +374,7 @@ class DataPreprocessor:
 
     """
     
-    def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10):
+    def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=5):
         """
         Compute smoothed CTR features for each column in cols_to_encode.
         In the 'train' subset, the CTR is computed by merging on the feature,
