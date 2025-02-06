@@ -377,8 +377,8 @@ class DataPreprocessor:
     def smooth_ctr(self, data, target_col, alpha=10):
         """Smooths the CTR by adding a prior."""
         # 1) Compute clicks and views
-        clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
-        self.logger.info(f"Clicks: {np.sum(clicks)}")
+        #clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
+        #self.logger.info(f"Clicks: {np.sum(clicks)}")
         views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
         
         # 2) Global CTR
@@ -386,10 +386,32 @@ class DataPreprocessor:
         
         # 3) Calculate smoothed CTR
         #    (clicks + alpha * global_ctr) / (views + alpha)
-        ctr = ((clicks + alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctr')
+        ctr = ((alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctrS')
         
         # 4) Merge back into data
         data = data.merge(ctr, how='left', on=target_col)
+        
+        # 5) Fill missing CTR with global CTR
+        data[f'{target_col}_ctrS'].fillna(global_ctr, inplace=True)
+        
+        return data
+    
+    def blend_ctr(self, data, target_col, alpha=10):
+        """Blends the CTR by adding a prior."""
+        # 1) Compute clicks and views
+        clicks = data[data['is_click'] == 1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
+        views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
+        
+        # 2) Global CTR
+        global_ctr = data['is_click'].mean()
+        local_ctr = clicks / views
+        
+        # 3) Calculate blended CTR
+        #    (clicks + alpha * global_ctr) / (views + alpha)
+        blended_ctr = (views / (views + alpha)) * local_ctr + (alpha / (views + alpha)) * global_ctr.rename(f'{target_col}_blended')
+        
+        # 4) Merge back into data
+        data = data.merge(blended_ctr, how='left', on=target_col)
         
         # 5) Fill missing CTR with global CTR
         data[f'{target_col}_ctr'].fillna(global_ctr, inplace=True)
@@ -438,15 +460,15 @@ class DataPreprocessor:
             df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
 
             # Store CTR mappings for use in test set
-            self.user_id_ctr_map = df.groupby("user_id")["user_id_ctr"].mean().to_dict()
-            self.product_ctr_map = df.groupby("product")["product_ctr"].mean().to_dict()
-            self.campaign_ctr_map = df.groupby("campaign_id")["campaign_id_ctr"].mean().to_dict()
+            self.user_id_ctr_map = df.groupby("user_id")["user_id_ctrS"].mean().to_dict()
+            self.product_ctr_map = df.groupby("product")["product_ctrS"].mean().to_dict()
+            self.campaign_ctr_map = df.groupby("campaign_id")["campaign_id_ctrS"].mean().to_dict()
 
             # Compute overall CTR for missing value handling
             self.global_ctr = df["is_click"].mean()
 
             # Handle missing values
-            colls_to_check = ['user_id_ctr', 'product_ctr', 'campaign_id_ctr']
+            colls_to_check = ['user_id_ctrS', 'product_ctrS', 'campaign_id_ctrS']
             self.logger.info(f'Missing values in {colls_to_check} before: {df[colls_to_check].isna().sum()}')
 
             if df[colls_to_check].isna().sum().sum() > 0:
@@ -457,9 +479,9 @@ class DataPreprocessor:
         elif subset == "test":
             # Apply CTR mapping from training set
             cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
-            df["user_id_ctr"] = df["user_id"].map(self.user_id_ctr_map).fillna(self.global_ctr)
-            df["product_ctr"] = df["product"].map(self.product_ctr_map).fillna(self.global_ctr)
-            df["campaign_id_ctr"] = df["campaign_id"].map(self.campaign_ctr_map).fillna(self.global_ctr)
+            df["user_id_ctrS"] = df["user_id"].map(self.user_id_ctr_map).fillna(self.global_ctr)
+            df["product_ctrS"] = df["product"].map(self.product_ctr_map).fillna(self.global_ctr)
+            df["campaign_id_ctrS"] = df["campaign_id"].map(self.campaign_ctr_map).fillna(self.global_ctr)
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
             # Handle unseen values: Fill missing CTR values with global CTR
