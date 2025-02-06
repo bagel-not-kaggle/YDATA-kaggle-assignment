@@ -416,24 +416,7 @@ class DataPreprocessor:
 
 
     def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10, cv=5, random_state=100):
-        """
-        Compute smoothed CTR features for each column in cols_to_encode using cross-validation.
         
-        In the 'train' subset, the CTR is computed in an out-of-fold fashion.
-        For each fold, we compute the mapping on the training fold and apply it to the validation fold.
-        In the 'test' subset, we use the mapping computed on the entire training data.
-        
-        Parameters:
-            df (pd.DataFrame): The input dataframe.
-            cols_to_encode (list): List of column names on which to compute the smoothed CTR.
-            subset (str): "train" or "test".
-            alpha (float): Smoothing parameter.
-            cv (int): Number of folds for cross-validation.
-            random_state (int): Random state for reproducibility.
-        
-        Returns:
-            pd.DataFrame: The dataframe with new smoothed CTR features.
-        """
         df = df.copy()
         
         if subset == "train":
@@ -539,22 +522,7 @@ class DataPreprocessor:
             df = self.smooth_ctr(df, cols_to_target_encode, subset="test")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
-            # Handle unseen values: Fill missing CTR values with global CTR
-            #df["user_id_ctr"].fillna(self.global_ctr, inplace=True)
-            #df["product_ctr"].fillna(self.global_ctr, inplace=True)
-            #df["campaign_id_ctr"].fillna(self.global_ctr, inplace=True)
-
-            # Threshold to decide whether to apply CTR encoding
-            #threshold = 0.05  # 5% of test set unique values should exist in train
-            #features_to_check = ["user_id", "product", "campaign_id"]
-
-            #for feature in features_to_check:
-             #   test_unique = df[feature].nunique()
-              #  train_unique = len(getattr(self, f"{feature}_ctr_map", {}))
-
-               # if test_unique > 0 and train_unique > 0 and test_unique / train_unique < threshold:
-                #    self.logger.warning(f"Too many unseen values in {feature}, removing {feature}_ctr")
-                 #   df.drop(columns=[f"{feature}_ctr"], inplace=True, errors="ignore")
+            
 
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
@@ -601,6 +569,7 @@ class DataPreprocessor:
 
     """
     
+
     def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
         df_train = self.drop_completely_empty(df_train).copy()
 
@@ -635,7 +604,7 @@ class DataPreprocessor:
         )
 
         ### 🔹 Step 2: **Apply feature generation separately on both**
-        df_train_subset = self.feature_generation(df_train_subset)
+        df_train_subset = self.feature_generation(df_train_subset, subset="train")
         df_train_val = self.feature_generation(df_train_val, subset="test")
         df_test = self.feature_generation(df_test, subset="test")
         ### 🔹 Step 3: **Extract X_train, y_train from df_train_subset & X_test, y_test from df_train_val**
@@ -671,6 +640,33 @@ class DataPreprocessor:
         self.logger.info("Created stratified folds for training data.")
 
         return df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test
+    
+    def preprocess_test(self, df_test: pd.DataFrame) -> pd.DataFrame:
+        df_test = self.drop_completely_empty(df_test).copy()
+
+        df_test = self.drop_session_id_or_is_click(df_test)
+
+        df_test = self.decrease_test_user_group_id(df_test) 
+
+        df_test = self.replace_test_user_depth_to_training(df_train, df_test)
+
+        df_test = self.concat_train_test(df_train, df_test)
+
+        self.logger.info(f"Total number of missing values in the joint dataset: {df_test.isna().sum()}")
+        df_test = self.deterministic_fill(df_test)
+        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df_test.isna().sum()}")
+
+        if self.remove_outliers:
+            df_test = self.remove_outliers(df_test)
+
+        if self.fillna:
+            df_test = self.fill_missing_values(df_test)
+
+        df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
+
+        df_test = self.feature_generation(df_test, subset="test")
+
+        return df_test
     
     r"""
      ____                  

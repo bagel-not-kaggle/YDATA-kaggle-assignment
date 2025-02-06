@@ -85,6 +85,57 @@ def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
         n_trials=n_trials,
         run_id=run_id
     )
+    
+"""
++-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+-+
+|F|e|a|t|u|r|e| |S|e|l|e|c|t|i|o|n|
++-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+-+
+
+"""
+
+
+@task(name="feature_selection")
+def feature_select(trainer, n_trials, run_id, folds_dir):
+    X_train = pd.read_pickle(Path(folds_dir) / "X_train.pkl")
+    y_train = pd.read_pickle(Path(folds_dir) / "y_train.pkl").squeeze()
+    
+    # Get feature selection results
+    best_features, feature_importance, feature_names = trainer.feature_selection(
+        X_train, 
+        y_train, 
+        n_trials=n_trials, 
+        run_id=run_id,
+        tune=False
+    )
+    
+    # Create visualization data
+    feature_data = list(zip(feature_names, feature_importance))
+    feature_data.sort(key=lambda x: x[1], reverse=True)
+    sorted_features, sorted_importance = zip(*feature_data)
+    
+    # Log to wandb
+    data = [[feature, float(importance)] for feature, importance in zip(sorted_features, sorted_importance)]
+    table = wandb.Table(data=data, columns=["Feature", "Importance"])
+    
+    wandb.log({
+        "Feature Importance": wandb.plot.bar(
+            table,
+            "Feature",
+            "Importance",
+            title="Feature Importance Rankings"
+        ),
+        "Selected Features Count": len(best_features),
+        "Selected Features": wandb.Table(
+            data=[[feat] for feat in best_features],
+            columns=["Feature"]
+        )
+    })
+    
+    return best_features, feature_importance, feature_names
+
+
+
+
 
 """
 +-+-+-+-+-+-+-+-+ +-+-+-+-+
@@ -146,6 +197,7 @@ def preprocess_and_train_flow(
     n_trials: int = 50,
     preprocess: bool = False,
     tune: bool = False,
+    feature_selection: bool = False,
     train: bool = False,
     params=None
 ):
@@ -180,6 +232,12 @@ def preprocess_and_train_flow(
         
         best_params_path = f'data/Hyperparams/best_params{run_id}.json'
         wandb.config.update(best_params)
+
+    best_features = None
+    if feature_selection:
+        best_features, feature_importance, feature_names  = feature_select(base_trainer, n_trials, run_id, folds_dir)
+        wandb.config.update("selected_features", best_features)
+
         
 
     if train:
@@ -208,6 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", type=int, default=50, help="Number of hyperparameter tuning trials.")
     parser.add_argument("--preprocess", action='store_true', help="Run preprocessing step.")
     parser.add_argument("--tune", action='store_true', help="Run hyperparameter tuning step.")
+    parser.add_argument("--feature_selection", action='store_true', help="Run feature selection step.")
     parser.add_argument("--train", action='store_true', help="Run training step.")
     parser.add_argument("--params", type=str, default=None, help="Path to the best hyperparameters JSON file.")
 

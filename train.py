@@ -86,7 +86,7 @@ class ModelTrainer:
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 #"class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
                 "iterations": 1000,
-                "eval_metric": "F1",
+                "eval_metric": "PRAUC:type=Classic",
                 "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
                 
@@ -177,7 +177,7 @@ class ModelTrainer:
         # add to study.best_params the constant parameters
         constant_params = {
              "iterations": 1000,
-                "eval_metric": "F1",
+                "eval_metric": "PRAUC:type=Classic",
                 "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
@@ -222,25 +222,31 @@ class ModelTrainer:
         return selected_features
     """
     
-    def feature_selection(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
+    def feature_selection(self, X_train, y_train, n_trials: int = 10, run_id: str = "1", tune=False):
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
         
-        best_params = self.hyperparameter_tuning(X_train, y_train, categorical_cols, n_trials=n_trials, run_id=run_id)
+        if tune:
+            best_params = self.hyperparameter_tuning(X_train, y_train, categorical_cols, n_trials=n_trials, run_id=run_id)
+        else:
+            with open(self.params, 'r') as f:
+                best_params = json.load(f)
+        self.logger.info(f'Starting feature selection with params: {best_params}')
         best_params['random_seed'] = 46
         model = CatBoostClassifier(**best_params,)
-        
+        self.logger.info(f"Training model with best hyperparameters: {self.params}")
         # Train model with categorical features properly handled
         model.fit(X_train, y_train, cat_features=categorical_cols)
-        
+        self.logger.info(f"Model training complete.")
         # Get feature importance using CatBoost's native method
         feature_importance = model.get_feature_importance()
+        self.logger.info(f"Feature importance: {feature_importance}")
         feature_names = X_train.columns
         
         # Select features based on importance threshold
         important_features = feature_names[feature_importance > np.mean(feature_importance)]
         
         print("Selected Features:", important_features)
-        return important_features
+        return important_features, feature_importance, feature_names
 
 
     """
@@ -429,5 +435,12 @@ if __name__ == "__main__":
         trainer.train_and_evaluate()
     
     if args.feature_selection:
-        X_train, y_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl"), pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
+        trainer = ModelTrainer(
+            folds_dir=args.folds_dir,
+            test_file=args.test_file,
+            model_name=args.model_name,
+            params=args.params
+        )
+        X_train = pd.read_pickle(Path(args.folds_dir) / "X_train.pkl")
+        y_train = pd.read_pickle(Path(args.folds_dir) / "y_train.pkl").squeeze()
         trainer.feature_selection(X_train, y_train, n_trials=args.n_trials, run_id=args.run_id)
