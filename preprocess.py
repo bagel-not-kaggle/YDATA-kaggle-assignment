@@ -45,11 +45,11 @@ class DataPreprocessor:
 
     """
 
-    def load_data(self, csv_path: Path) -> pd.DataFrame:
+    def load_data(self, csv_path: Path, test_path: Path) -> pd.DataFrame:
         if not csv_path.exists():
             raise FileNotFoundError(f"File not found: {csv_path}")
         df = pd.read_csv(csv_path)
-        df_test = pd.read_csv("data/raw/X_test_1st.csv")
+        df_test = pd.read_csv(test_path)
         
         self.logger.info(f"Loading file from: {csv_path}")
         return df, df_test
@@ -718,6 +718,7 @@ class DataPreprocessor:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the input CSV file")
+    parser.add_argument("--test_path", type=str, default="data/raw/X_test_1st.csv", help="Path to test file")
     parser.add_argument("--output_path", type=str, default="data/processed", help="Path to save the output data")
     parser.add_argument("--remove-outliers", action="store_true", help="Flag to remove outliers")
     parser.add_argument("--fillna", action="store_true", help="Flag to fill missing values")
@@ -735,6 +736,6 @@ if __name__ == "__main__":
         save_as_pickle=args.save_as_pickle
     )
 
-    df_train,df_test = preprocessor.load_data(Path(args.csv_path))
+    df_train,df_test = preprocessor.load_data(Path(args.csv_path), Path(args.test_path))
     df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
     preprocessor.save_data(df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test)
