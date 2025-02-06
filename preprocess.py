@@ -373,28 +373,6 @@ class DataPreprocessor:
     ╚  └─┘┴ ┴ ┴ └─┘┴└─└─┘  ╚═╝└─┘┘└┘└─┘┴└─┴ ┴ ┴ ┴└─┘┘└┘
 
     """
-
-    def smooth_ctr(self, data, target_col, alpha=10):
-        """Smooths the CTR by adding a prior."""
-        # 1) Compute clicks and views
-        #clicks = data[data['is_click'] !=1].groupby(target_col)['is_click'].sum().rename(f'{target_col}_clicks')
-        #self.logger.info(f"Clicks: {np.sum(clicks)}")
-        views = data.groupby(target_col)['session_id'].count().rename(f'{target_col}_views')
-        
-        # 2) Global CTR
-        global_ctr = data['is_click'].mean()
-        
-        # 3) Calculate smoothed CTR
-        #    (clicks + alpha * global_ctr) / (views + alpha)
-        ctr = ((alpha * global_ctr) / (views + alpha)).rename(f'{target_col}_ctrS')
-        
-        # 4) Merge back into data
-        data = data.merge(ctr, how='left', on=target_col)
-        
-        # 5) Fill missing CTR with global CTR
-        data[f'{target_col}_ctrS'].fillna(global_ctr, inplace=True)
-        
-        return data
     
     def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10):
         """
