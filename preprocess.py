@@ -374,7 +374,7 @@ class DataPreprocessor:
 
     """
     
-    def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=5):
+    def smooth_ctr_old(self, df, cols_to_encode, subset="train", alpha=10):
         """
         Compute smoothed CTR features for each column in cols_to_encode.
         In the 'train' subset, the CTR is computed by merging on the feature,
@@ -388,6 +388,7 @@ class DataPreprocessor:
             self.global_ctrs = {}
             for col in cols_to_encode:
                 # Compute the number of views per value in col
+                
                 views = df.groupby(col)['session_id'].count()
                 # Global CTR on the provided training subset
                 global_ctr = df['is_click'].mean()
@@ -411,6 +412,82 @@ class DataPreprocessor:
                 global_ctr = self.global_ctrs[col]
                 df[f'{col}_ctrS'] = df[col].map(self.ctr_maps[col]).fillna(global_ctr)
             return df
+        
+
+
+    def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10, cv=5, random_state=100):
+        """
+        Compute smoothed CTR features for each column in cols_to_encode using cross-validation.
+        
+        In the 'train' subset, the CTR is computed in an out-of-fold fashion.
+        For each fold, we compute the mapping on the training fold and apply it to the validation fold.
+        In the 'test' subset, we use the mapping computed on the entire training data.
+        
+        Parameters:
+            df (pd.DataFrame): The input dataframe.
+            cols_to_encode (list): List of column names on which to compute the smoothed CTR.
+            subset (str): "train" or "test".
+            alpha (float): Smoothing parameter.
+            cv (int): Number of folds for cross-validation.
+            random_state (int): Random state for reproducibility.
+        
+        Returns:
+            pd.DataFrame: The dataframe with new smoothed CTR features.
+        """
+        df = df.copy()
+        
+        if subset == "train":
+            # Initialize dictionaries to store mappings and global CTRs for later use on test data.
+            self.ctr_maps = {}
+            self.global_ctrs = {}
+            
+            for col in cols_to_encode:
+                # Compute the global CTR from the full training data
+                global_ctr = df['is_click'].mean()
+                self.global_ctrs[col] = global_ctr
+
+                # Create an empty series to hold the out-of-fold CTR values.
+                oof_ctr = pd.Series(np.nan, index=df.index)
+                
+                # Set up the cross-validation splitter
+                skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+                
+                # Loop through each fold for out-of-fold predictions.
+                for train_idx, val_idx in skf.split(df, df['is_click']):
+                    train_fold = df.iloc[train_idx]
+                    val_fold = df.iloc[val_idx]
+                    
+                    # Compute clicks and views on the training fold for this column.
+                    clicks = train_fold.groupby(col)['is_click'].sum()
+                    views = train_fold.groupby(col)['session_id'].count()
+                    
+                    # Compute the smoothed CTR mapping on the training fold.
+                    mapping = ((clicks + alpha * global_ctr) / (views + alpha)).rename(f'{col}_ctrS')
+                    
+                    # Map the computed CTR values to the validation fold.
+                    oof_ctr.iloc[val_idx] = val_fold[col].map(mapping)
+                
+                # Fill any missing values (e.g., unseen categories in the CV splits) with the global CTR.
+                oof_ctr.fillna(global_ctr, inplace=True)
+                df[f'{col}_ctrS'] = oof_ctr
+                
+                # Now, compute the mapping using the entire training data for test transformation.
+                clicks_all = df.groupby(col)['is_click'].sum()
+                views_all = df.groupby(col)['session_id'].count()
+                mapping_all = ((clicks_all + alpha * global_ctr) / (views_all + alpha)).rename(f'{col}_ctrS')
+                self.ctr_maps[col] = mapping_all.to_dict()
+            
+            return df
+        
+        elif subset == "test":
+            # For the test data, use the mapping computed from the training set.
+            for col in cols_to_encode:
+                global_ctr = self.global_ctrs.get(col, df['is_click'].mean())
+                df[f'{col}_ctrS'] = df[col].map(self.ctr_maps.get(col, {})).fillna(global_ctr)
+            return df
+        
+        else:
+            raise ValueError("subset must be either 'train' or 'test'")
 
 
     
