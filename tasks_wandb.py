@@ -105,7 +105,7 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
         y_train, 
         n_trials=n_trials, 
         run_id=run_id,
-        tune=False
+        tune=False,
     )
     
     # Create visualization data
@@ -283,6 +283,7 @@ if __name__ == "__main__":
         n_trials=args.n_trials,
         preprocess=args.preprocess,
         tune=args.tune,
+        feature_selection=args.feature_selection,
         train=args.train,
         params=args.params
     )
