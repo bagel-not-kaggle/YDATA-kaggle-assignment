@@ -223,6 +223,7 @@ def preprocess_and_train_flow(
         test_file=test_file,
         model_name=model_name,
         callback=wandb_callback,
+        params= params
     )
     
     best_params = None
