@@ -36,11 +36,11 @@ def load_model(path: str = MODEL_PATH):
     model.load_model(path)
     return model
 
-from bokeh.plotting import figure
+# from bokeh.plotting import figure
 
 # Create a Bokeh figure
-p = figure(title="Bokeh in Streamlit", x_axis_label="X", y_axis_label="Y")
-p.line([1, 2, 3, 4, 5], [5, 4, 3, 2, 1], line_width=2)
+# p = figure(title="Bokeh in Streamlit", x_axis_label="X", y_axis_label="Y")
+# p.line([1, 2, 3, 4, 5], [5, 4, 3, 2, 1], line_width=2)
 
 # Show it in Streamlit
-st.bokeh_chart(p)
+# st.bokeh_chart(p)

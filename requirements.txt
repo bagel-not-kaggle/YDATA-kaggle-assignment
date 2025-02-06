@@ -13,3 +13,4 @@ wandb
 optuna
 fastapi[standard]
 streamlit
+numpy
