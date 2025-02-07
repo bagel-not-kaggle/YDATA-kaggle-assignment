@@ -110,26 +110,39 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
     
     # Create visualization data
     feature_data = list(zip(feature_names, feature_importance))
-    feature_data.sort(key=lambda x: x[1], reverse=True)
+    feature_data.sort(key=lambda x: x[1], reverse=True) # 
     sorted_features, sorted_importance = zip(*feature_data)
     
     # Log to wandb
-    data = [[feature, float(importance)] for feature, importance in zip(sorted_features, sorted_importance)]
-    table = wandb.Table(data=data, columns=["Feature", "Importance"])
+    #data = [[feature, float(importance)] for feature, importance in zip(sorted_features, sorted_importance)]
+    #table = wandb.Table(data=data, columns=["Feature", "Importance"])
     
+    import plotly.graph_objects as go
+
+    # Create the sorted bar chart
+    fig = go.Figure(data=[
+        go.Bar(
+            x=sorted_features,
+            y=sorted_importance,
+            orientation='v'
+        )
+    ])
+
+    fig.update_layout(
+        title="Feature Importance Rankings",
+        xaxis_title="Features",
+        yaxis_title="Importance"
+    )
+
     wandb.log({
-        "Feature Importance": wandb.plot.bar(
-            table,
-            "Feature",
-            "Importance",
-            title="Feature Importance Rankings"
-        ),
+        "Feature Importance": wandb.plotly.plot(fig),
         "Selected Features Count": len(best_features),
         "Selected Features": wandb.Table(
             data=[[feat] for feat in best_features],
             columns=["Feature"]
         )
     })
+
     
     return best_features, feature_importance, feature_names
 
