@@ -7,6 +7,10 @@ import pandas as pd
 import numpy as np
 import json
 import argparse
+import holoviews as hv
+import panel as pn
+from bokeh.resources import INLINE
+hv.extension("bokeh", logo=False)
 
 """
 +-+-+-+ +-+-+-+-+-+-+-+-+-+
@@ -117,32 +121,32 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
     #data = [[feature, float(importance)] for feature, importance in zip(sorted_features, sorted_importance)]
     #table = wandb.Table(data=data, columns=["Feature", "Importance"])
     
-    import plotly.graph_objects as go
-
-    # Create the sorted bar chart
-    fig = go.Figure(data=[
-        go.Bar(
-            x=sorted_features,
-            y=sorted_importance,
-            orientation='v'
-        )
-    ])
-
-    fig.update_layout(
-        title="Feature Importance Rankings",
-        xaxis_title="Features",
-        yaxis_title="Importance"
+    # Create holoviews bar plot
+    bars = hv.Bars((sorted_features, sorted_importance), 'Features', 'Importance')
+    bars.opts(
+        width=800,
+        height=400,
+        tools=['hover'],
+        title='Feature Importance Rankings',
+        xrotation=45
     )
-
+    
+    # Save to HTML
+    html_file_name = "feature_importance.html"
+    pn.pane.HoloViews(bars).save(html_file_name)
+    
+    # Log to wandb
+    wandb_html = wandb.Html(html_file_name)
+    table = wandb.Table(columns=["Feature_Importance_Plot"], data=[[wandb_html]])
+    
     wandb.log({
-        "Feature Importance": wandb.plotly.plot(fig),
+        "Feature_Importance_Table": table,
         "Selected Features Count": len(best_features),
         "Selected Features": wandb.Table(
             data=[[feat] for feat in best_features],
             columns=["Feature"]
         )
     })
-
     
     return best_features, feature_importance, feature_names
 
@@ -250,7 +254,8 @@ def preprocess_and_train_flow(
     best_features = None
     if feature_selection:
         best_features, feature_importance, feature_names  = feature_select(base_trainer, n_trials, run_id, folds_dir)
-        wandb.config.update("selected_features", best_features)
+        wandb.config.update({"selected_features": list(best_features)})
+
 
         
 

@@ -4,6 +4,9 @@ jupyter
 matplotlib
 seaborn
 plotly
+bokeh
+holoviews 
+panel
 catboost
 prefect
 invoke
