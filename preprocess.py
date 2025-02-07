@@ -79,6 +79,12 @@ class DataPreprocessor:
         df.drop_duplicates(subset=["session_id"], inplace=True)
         return df
 
+    def drop_session_id(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''drop rows missing session_id'''
+        df.dropna(subset=["session_id"], inplace=True)
+        df.drop_duplicates(subset=["session_id"], inplace=True)
+        return df
+
     def decrease_test_user_group_id(self, df_test: pd.DataFrame) -> pd.DataFrame:
         '''decrease user_group_id by 1 to align with training data'''
         df_test["user_group_id"] = df_test["user_group_id"] - 1
@@ -227,27 +233,47 @@ class DataPreprocessor:
             old_df = df.copy()
             user_cols = ['user_group_id', 'gender', 'age_level', 'city_development_index', 'user_depth']
 
+            # Handle user columns
             for col in user_cols:
-                df = self.infer_by_col(df, col, key_col='user_id')
+                if col in df.columns:  # Only process if column exists
+                    df = self.infer_by_col(df, col, key_col='user_id')
 
-            #infer webpage_id from campaign_id
-            df = self.infer_by_col(df, "webpage_id", key_col='campaign_id')
+            # Handle product category
+            if 'product_category_1' in df.columns and 'campaign_id' in df.columns:
+                df = self.infer_by_col(df, "product_category_1", key_col='campaign_id',
+                                       mapping_df=df[df.campaign_id == 396664])
 
-            df = self.infer_by_col(df, "product_category_1", key_col='campaign_id', mapping_df= df[df.campaign_id == 396664])
+            # Handle webpage and campaign IDs
+            if 'webpage_id' in df.columns and 'campaign_id' in df.columns:
+                df = self.infer_by_col(df, "webpage_id", key_col='campaign_id')
+                df = self.infer_by_col(df, "campaign_id", key_col='webpage_id',
+                                       mapping_df=df[df.webpage_id != 13787])
 
-            df = self.infer_by_col(df, "campaign_id", key_col='webpage_id', mapping_df= df[df.webpage_id != 13787])
+            # Handle product category by webpage
+            if 'product_category_1' in df.columns and 'webpage_id' in df.columns:
+                df = self.infer_by_col(df, "product_category_1", key_col='webpage_id',
+                                       mapping_df=df[df.webpage_id == 51181])
 
-            df = self.infer_by_col(df, "product_category_1", key_col='webpage_id', mapping_df= df[df.webpage_id == 51181])
+            # Handle gender and age by user group
+            if 'gender' in df.columns and 'user_group_id' in df.columns:
+                df = self.infer_by_col(df, "gender", key_col='user_group_id',
+                                       mapping_df=df[df.user_group_id != 0])
 
-            df = self.infer_by_col(df, "gender", key_col='user_group_id', mapping_df= df[df.user_group_id != 0])
+            if 'age_level' in df.columns and 'user_group_id' in df.columns:
+                df = self.infer_by_col(df, "age_level", key_col='user_group_id')
 
-            df = self.infer_by_col(df, "age_level", key_col='user_group_id')
+            if 'user_group_id' in df.columns and 'age_level' in df.columns:
+                df = self.infer_by_col(df, "user_group_id", key_col='age_level',
+                                       mapping_df=df[df.age_level == 0])
 
-            df = self.infer_by_col(df, "user_group_id", key_col='age_level', mapping_df= df[df.age_level == 0])
+            # Handle user group by age and gender
+            if all(col in df.columns for col in ["user_group_id", "age_level", "gender"]):
+                df = self.infer_by_two_cols(df, target_col="user_group_id",
+                                            key_cols=["age_level", "gender"])
 
-            df = self.infer_by_two_cols(df, target_col="user_group_id", key_cols=["age_level", "gender"])
- 
-            df = self.fillna_when_single_unique_value(df, group_col= "product_category_2")
+            # Handle product category 2
+            if "product_category_2" in df.columns:
+                df = self.fillna_when_single_unique_value(df, group_col="product_category_2")
 
             changed = not df.equals(old_df)
             iteration += 1
@@ -324,6 +350,46 @@ class DataPreprocessor:
 
     """
 
+    # def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     """
+    #     Fill missing values using mode, median, or forward/backward fill.
+    #     Includes subfunctions for modularity.
+    #     """
+    #     df = df.copy()
+    #     self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
+    #     df["user_id"] = df["user_id"].fillna(-1).astype("int32")
+    #     df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
+    #     df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+    #
+    #
+    #     # Apply mode-based filling if enabled
+    #     if self.fill_cat:
+    #         cat_cols_to_fill = ["product", "campaign_id", "webpage_id", "gender", "product_category", "user_group_id"]
+    #         df = self.mode_target(df, cat_cols_to_fill, "user_id")
+    #
+    #     cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
+    #     self.logger.info(f"Filling missing values with user_id for columns: {cols_for_ffill_bfill}")
+    #     self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
+    #     df[cols_for_ffill_bfill] = self.mode_target(df, cols_for_ffill_bfill,"user_id")
+    #     self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+    #
+    #     if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
+    #         self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
+    #         self.logger.info(f"Filling missing values with user_group_id for columns: {cols_for_ffill_bfill}")
+    #         for col in cols_for_ffill_bfill:
+    #             mask = df[col].isna()  # Identify rows where the value is still missing
+    #             if mask.sum() > 0:
+    #                 df.loc[mask, col] = self.mode_target(df, [col], "user_group_id").loc[mask, col]
+    #         self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+    #
+    #         if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
+    #             self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
+    #             self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
+    #             df = self.fill_with_mode(df, cols_for_ffill_bfill)
+    #             self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+    #
+    #
+    #     return df
     def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fill missing values using mode, median, or forward/backward fill.
@@ -331,38 +397,54 @@ class DataPreprocessor:
         """
         df = df.copy()
         self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
-        df["user_id"] = df["user_id"].fillna(-1).astype("int32")        
-        df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
-        df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
 
+        # Handle user_id
+        df["user_id"] = df["user_id"].fillna(-1).astype("int32")
+
+        # Handle product category columns if they exist
+        if all(col in df.columns for col in ["product_category_1", "product_category_2"]):
+            df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
+            df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+        elif "product_category_1" in df.columns:
+            df["product_category"] = df["product_category_1"]
+            df.drop(columns=["product_category_1"], inplace=True)
+        elif "product_category_2" in df.columns:
+            df["product_category"] = df["product_category_2"]
+            df.drop(columns=["product_category_2"], inplace=True)
+        elif "product_category" not in df.columns:
+            df["product_category"] = "missing"
 
         # Apply mode-based filling if enabled
         if self.fill_cat:
             cat_cols_to_fill = ["product", "campaign_id", "webpage_id", "gender", "product_category", "user_group_id"]
-            df = self.mode_target(df, cat_cols_to_fill, "user_id")
+            cat_cols_to_fill = [col for col in cat_cols_to_fill if col in df.columns]
+            if cat_cols_to_fill:
+                df = self.mode_target(df, cat_cols_to_fill, "user_id")
 
-        cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
-        self.logger.info(f"Filling missing values with user_id for columns: {cols_for_ffill_bfill}")
-        self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
-        df[cols_for_ffill_bfill] = self.mode_target(df, cols_for_ffill_bfill,"user_id")
-        self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+        cols_for_ffill_bfill = ["age_level", "city_development_index", "var_1", "user_depth"]
+        cols_for_ffill_bfill = [col for col in cols_for_ffill_bfill if col in df.columns]
 
-        if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
-            self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
-            self.logger.info(f"Filling missing values with user_group_id for columns: {cols_for_ffill_bfill}")
-            for col in cols_for_ffill_bfill:
-                mask = df[col].isna()  # Identify rows where the value is still missing
-                if mask.sum() > 0:
-                    df.loc[mask, col] = self.mode_target(df, [col], "user_group_id").loc[mask, col]
+        if cols_for_ffill_bfill:
+            self.logger.info(f"Filling missing values with user_id for columns: {cols_for_ffill_bfill}")
+            self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
+            df[cols_for_ffill_bfill] = self.mode_target(df, cols_for_ffill_bfill, "user_id")
             self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
 
             if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
                 self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
-                self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
-                df = self.fill_with_mode(df, cols_for_ffill_bfill)
+                self.logger.info(f"Filling missing values with user_group_id for columns: {cols_for_ffill_bfill}")
+                for col in cols_for_ffill_bfill:
+                    mask = df[col].isna()  # Identify rows where the value is still missing
+                    if mask.sum() > 0:
+                        df.loc[mask, col] = self.mode_target(df, [col], "user_group_id").loc[mask, col]
                 self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
 
-        
+                if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
+                    self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
+                    self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
+                    df = self.fill_with_mode(df, cols_for_ffill_bfill)
+                    self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
+
         return df
 
     ########################################################################################################################################################
@@ -543,8 +625,12 @@ class DataPreprocessor:
         df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / 3600
 
         # Fill campaign duration missing values
-        df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr), inplace=True)
-
+        # df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr), inplace=True)
+        df.loc[:, 'campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
+            df.groupby('campaign_id')['campaign_duration_hours'].transform(
+                lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr
+            )
+        )
         # Drop unnecessary columns
         df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True, errors="ignore")
 
@@ -573,7 +659,7 @@ class DataPreprocessor:
     def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
         df_train = self.drop_completely_empty(df_train).copy()
 
-        df_train = self.drop_session_id_or_is_click(df_train)
+        df_train = self.drop_session_id(df_train)
 
         df_test = self.decrease_test_user_group_id(df_test) 
 
@@ -640,33 +726,86 @@ class DataPreprocessor:
         self.logger.info("Created stratified folds for training data.")
 
         return df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test
-    
+
     def preprocess_test(self, df_test: pd.DataFrame) -> pd.DataFrame:
-        df_test = self.drop_completely_empty(df_test).copy()
+        """Preprocess a test file independently"""
+        try:
+            # Load and clean training data
+            train_data = pd.read_csv("data/raw/train_dataset_full.csv")
+            train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
 
-        df_test = self.drop_session_id_or_is_click(df_test)
+            # Clean training data
+            train_data = self.drop_completely_empty(train_data)
+            train_data.dropna(subset=["is_click"], inplace=True)
 
-        df_test = self.decrease_test_user_group_id(df_test) 
+            # Transform product category columns in training data
+            train_data["product_category"] = train_data["product_category_1"].fillna(train_data["product_category_2"])
+            train_data.drop(columns=["product_category_1", "product_category_2"], inplace=True)
 
-        df_test = self.replace_test_user_depth_to_training(df_train, df_test)
+            # Initialize target encoder with clean training data
+            cols_to_encode = [c for c in train_data.columns if c not in ["session_id", "DateTime", "is_click"]]
+            self.te = TargetEncoder()
+            self.te.fit(train_data[cols_to_encode], train_data["is_click"].astype(int))
 
-        df_test = self.concat_train_test(df_train, df_test)
+            # Initialize global CTRs and maps from training data
+            self.global_ctrs = {}
+            self.ctr_maps = {}
 
-        self.logger.info(f"Total number of missing values in the joint dataset: {df_test.isna().sum()}")
-        df_test = self.deterministic_fill(df_test)
-        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df_test.isna().sum()}")
+            # Calculate global CTRs from training data
+            for col in cols_to_encode:
+                if col in train_data.columns:
+                    # Compute global CTR
+                    self.global_ctrs[col] = train_data['is_click'].mean()
 
-        if self.remove_outliers:
-            df_test = self.remove_outliers(df_test)
+                    # Compute clicks and views
+                    clicks = train_data.groupby(col)['is_click'].sum()
+                    views = train_data.groupby(col)['session_id'].count()
 
-        if self.fillna:
-            df_test = self.fill_missing_values(df_test)
+                    # Compute smoothed CTR mapping
+                    alpha = 10  # smoothing parameter
+                    mapping = ((clicks + alpha * self.global_ctrs[col]) / (views + alpha))
+                    self.ctr_maps[col] = mapping.to_dict()
 
-        df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
+            # Initial preprocessing
+            df_test = self.drop_completely_empty(df_test).copy()
+            df_test = self.drop_session_id(df_test)  # Using the new function
 
-        df_test = self.feature_generation(df_test, subset="test")
+            # Transform product category columns in test data
+            if "product_category_1" in df_test.columns and "product_category_2" in df_test.columns:
+                df_test["product_category"] = df_test["product_category_1"].fillna(df_test["product_category_2"])
+                df_test.drop(columns=["product_category_1", "product_category_2"], inplace=True)
 
-        return df_test
+            # Handle user_group_id
+            df_test = self.decrease_test_user_group_id(df_test)
+
+            # Handle user_depth using training data
+            df_test = self.replace_test_user_depth_to_training(train_data, df_test)
+
+            # Add is_click column for feature generation
+            df_test["is_click"] = -1
+
+            # Convert DateTime
+            df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
+
+            # Handle missing values
+            if self.fillna:
+                df_test = self.fill_missing_values(df_test)
+
+            # Apply deterministic fill
+            df_test = self.deterministic_fill(df_test)
+
+            # Handle outliers if needed
+            if self.remove_outliers:
+                df_test = self.remove_outliers(df_test)
+
+            # Generate features
+            df_test = self.feature_generation(df_test, subset="test")
+
+            return df_test
+
+        except Exception as e:
+            self.logger.error(f"Error in preprocess_test: {str(e)}")
+            raise
     
     r"""
      ____                  
