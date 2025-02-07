@@ -53,7 +53,7 @@ def wandb_callback(metrics: dict):
 """
 
 @task(name="preprocess_data")
-def preprocess_data(csv_path: str, output_path: str):
+def preprocess_data(csv_path: str, output_path: str,test_path:str):
     """
     Load raw data, run preprocessing, and save the processed data. Logs essential details to W&B.
     """
@@ -65,7 +65,7 @@ def preprocess_data(csv_path: str, output_path: str):
         save_as_pickle=True,
         callback=wandb_callback
     )
-    df, X_test_1st = preprocessor.load_data(Path(csv_path))
+    df, X_test_1st = preprocessor.load_data(Path(csv_path), Path(test_path))
     df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st = preprocessor.preprocess(df, X_test_1st)
     preprocessor.save_data(df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st)
     return df_clean, X_train, X_test, y_train, y_test, fold_datasets, X_test_1st
@@ -206,6 +206,7 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
 @flow(name="preprocess_and_train_flow")
 def preprocess_and_train_flow(
     csv_path: str = "data/raw/train_dataset_full.csv",
+    test_path: str = "data/raw/X_test_1st.csv",
     output_path: str = "data/processed",
     folds_dir: str = "data/processed",
     test_file: str = "data/processed",
@@ -285,6 +286,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the preprocess_and_train_flow with optional parameters.")
     parser.add_argument("--csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the raw CSV file.")
     parser.add_argument("--output_path", type=str, default="data/processed", help="Path to save the processed data.")
+    parser.add_argument("--test_path", type=str, default="data/raw/X_test_1st.csv", help="Path to test file")
     parser.add_argument("--folds_dir", type=str, default="data/processed", help="Directory for folds.")
     parser.add_argument("--test_file", type=str, default="data/processed", help="Path to the test file.")
     parser.add_argument("--model_name", type=str, default="catboost", help="Name of the model.")
@@ -301,6 +303,7 @@ if __name__ == "__main__":
     preprocess_and_train_flow(
         csv_path=args.csv_path,
         output_path=args.output_path,
+        test_path=args.test_path,
         folds_dir=args.folds_dir,
         test_file=args.test_file,
         model_name=args.model_name,

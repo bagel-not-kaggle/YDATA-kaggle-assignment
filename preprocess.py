@@ -659,7 +659,7 @@ class DataPreprocessor:
     def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
         df_train = self.drop_completely_empty(df_train).copy()
 
-        df_train = self.drop_session_id(df_train)
+        df_train = self.drop_session_id_or_is_click(df_train)
 
         df_test = self.decrease_test_user_group_id(df_test) 
 
