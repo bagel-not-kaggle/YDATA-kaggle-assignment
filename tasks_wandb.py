@@ -234,7 +234,7 @@ def preprocess_and_train_flow(
     )
 
     if preprocess:
-        preprocess_data(csv_path, output_path)
+        preprocess_data(csv_path, output_path, test_path)
     
     base_trainer = ModelTrainer(
         folds_dir=folds_dir,
