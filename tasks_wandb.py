@@ -250,6 +250,13 @@ def preprocess_and_train_flow(
         
         best_params_path = f'data/Hyperparams/best_params{run_id}.json'
         wandb.config.update(best_params)
+        base_trainer = ModelTrainer(
+        folds_dir=folds_dir,
+        test_file=test_file,
+        model_name=model_name,
+        callback=wandb_callback,
+        params=best_params_path
+    )
 
     best_features = None
     if feature_selection:
