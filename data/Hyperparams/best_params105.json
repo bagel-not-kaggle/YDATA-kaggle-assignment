@@ -1,0 +1,17 @@
+{
+    "depth": 12,
+    "learning_rate": 0.1330789229214098,
+    "l2_leaf_reg": 22.56786822269986,
+    "random_strength": 3.4168047931335614,
+    "rsm": 0.6065370055584259,
+    "leaf_estimation_iterations": 18,
+    "bootstrap_type": "Bayesian",
+    "bagging_temperature": 1.081636266942468,
+    "grow_policy": "SymmetricTree",
+    "iterations": 1000,
+    "eval_metric": "F1",
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
+}

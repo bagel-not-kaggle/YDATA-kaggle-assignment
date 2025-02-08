@@ -1,0 +1,16 @@
+{
+    "depth": 6,
+    "learning_rate": 0.09327188253274579,
+    "l2_leaf_reg": 31.95199844229,
+    "random_strength": 2.5658166940101204,
+    "rsm": 0.6702250666985794,
+    "leaf_estimation_iterations": 4,
+    "bootstrap_type": "Bernoulli",
+    "subsample": 0.6412638202606225,
+    "iterations": 1000,
+    "eval_metric": "F1",
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
+}
