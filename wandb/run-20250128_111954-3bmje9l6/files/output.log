@@ -1,7 +1,0 @@
-11:20:40.674 | [38;5;184mWARNING[0m | preprocess_cat - Still missing values in columns: ['age_level', 'city_development_index', 'var_1', 'user_depth']
-11:20:40.787 | [38;5;184mWARNING[0m | preprocess_cat - 3019 rows still have missing 'is_click'. Dropping these rows.
-11:21:24.554 | [38;5;184mWARNING[0m | preprocess_cat - Still missing values in columns: 528
-C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py:20: FutureWarning: The behavior of Series.replace (and DataFrame.replace) with CategoricalDtype is deprecated. In a future version, replace will only be used for cases that preserve the categories. To change the categories, use ser.cat.rename_categories instead.
-  df[col] = df[col].replace('missing', np.nan)
-C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\wandb_test3.py:24: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
-  if pd.api.types.is_categorical_dtype(series):

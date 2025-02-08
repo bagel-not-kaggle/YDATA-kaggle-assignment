@@ -1,2 +1,0 @@
-17:49:45.020 | [38;5;184mWARNING[0m | preprocess_cat - 248 rows still have missing 'is_click'. Dropping these rows.
-17:50:54.751 | [38;5;184mWARNING[0m | preprocess_cat - Still missing values in columns: 660
