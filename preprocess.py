@@ -109,7 +109,7 @@ class DataPreprocessor:
 
     def concat_train_test(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> pd.DataFrame:
         '''concat df_train with df_test, with is_click = -1 as an indicator'''
-        df_test["is_click"] = np.full(df_test.shape[0], -1)
+        df_test["Indicator"] = np.full(df_test.shape[0], -1)
         df = pd.concat([df_train, df_test], ignore_index=True)
         return df
     
@@ -350,46 +350,6 @@ class DataPreprocessor:
 
     """
 
-    # def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-    #     """
-    #     Fill missing values using mode, median, or forward/backward fill.
-    #     Includes subfunctions for modularity.
-    #     """
-    #     df = df.copy()
-    #     self.logger.info(f"NAs in the dataset: {df.isna().sum().sum()}")
-    #     df["user_id"] = df["user_id"].fillna(-1).astype("int32")
-    #     df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
-    #     df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-    #
-    #
-    #     # Apply mode-based filling if enabled
-    #     if self.fill_cat:
-    #         cat_cols_to_fill = ["product", "campaign_id", "webpage_id", "gender", "product_category", "user_group_id"]
-    #         df = self.mode_target(df, cat_cols_to_fill, "user_id")
-    #
-    #     cols_for_ffill_bfill = ["age_level", "city_development_index","var_1", "user_depth"]
-    #     self.logger.info(f"Filling missing values with user_id for columns: {cols_for_ffill_bfill}")
-    #     self.logger.info(f'Number of missing values before: {df[cols_for_ffill_bfill].isna().sum()}')
-    #     df[cols_for_ffill_bfill] = self.mode_target(df, cols_for_ffill_bfill,"user_id")
-    #     self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
-    #
-    #     if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
-    #         self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
-    #         self.logger.info(f"Filling missing values with user_group_id for columns: {cols_for_ffill_bfill}")
-    #         for col in cols_for_ffill_bfill:
-    #             mask = df[col].isna()  # Identify rows where the value is still missing
-    #             if mask.sum() > 0:
-    #                 df.loc[mask, col] = self.mode_target(df, [col], "user_group_id").loc[mask, col]
-    #         self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
-    #
-    #         if df[cols_for_ffill_bfill].isna().sum().sum() > 0:
-    #             self.logger.warning(f'Still missing values in columns: {cols_for_ffill_bfill}')
-    #             self.logger.info(f"Filling missing values with mode for columns: {cols_for_ffill_bfill}")
-    #             df = self.fill_with_mode(df, cols_for_ffill_bfill)
-    #             self.logger.info(f'Number of missing values after: {df[cols_for_ffill_bfill].isna().sum()}')
-    #
-    #
-    #     return df
     def fill_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fill missing values using mode, median, or forward/backward fill.
@@ -665,13 +625,17 @@ class DataPreprocessor:
 
         df_test = self.replace_test_user_depth_to_training(df_train, df_test)
 
-        df = self.concat_train_test(df_train, df_test)
+        #df = self.concat_train_test(df_train, df_test)
 
-        self.logger.info(f"Total number of missing values in the joint dataset: {df.isna().sum()}")
-        df = self.deterministic_fill(df)
-        self.logger.info(f"Total number of missing values in the joint dataset after deterministic_fill: {df.isna().sum()}")
+        self.logger.info(f"Total number of missing values in the train dataset: {df_train.isna().sum().sum()}")
+        self.logger.info(f"Total number of missing values in the test dataset: {df_test.isna().sum().sum()}")
+        #df = self.deterministic_fill(df)
+        df_train = self.deterministic_fill(df_train)
+        df_test = self.deterministic_fill(df_test)
+        self.logger.info(f"Total number of missing values in the train dataset after deterministic_fill: {df_train.isna().sum().sum()}")
+        self.logger.info(f"Total number of missing values in the test dataset after deterministic_fill: {df_test.isna().sum().sum()}")
 
-        df_train, df_test = self.split_to_train_test(df)
+        #df_train, df_test = self.split_to_train_test(df)
         df_train["DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
         df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
@@ -685,20 +649,22 @@ class DataPreprocessor:
 
         
         
-        df_train_subset, df_train_val = train_test_split(
-        df_train, test_size=0.2, random_state=100, stratify=df_train["is_click"]
-        )
+        #df_train_subset, df_train_val = train_test_split(
+        #df_train, test_size=0.2, random_state=100, stratify=df_train["is_click"]
+        #)
 
         ### 🔹 Step 2: **Apply feature generation separately on both**
-        df_train_subset = self.feature_generation(df_train_subset, subset="train")
-        df_train_val = self.feature_generation(df_train_val, subset="test")
+        df_train = self.feature_generation(df_train, subset="train")
+        #df_train_val = self.feature_generation(df_train_val, subset="test")
         df_test = self.feature_generation(df_test, subset="test")
         ### 🔹 Step 3: **Extract X_train, y_train from df_train_subset & X_test, y_test from df_train_val**
-        X_train = df_train_subset.drop(columns=["is_click"])
-        y_train = df_train_subset["is_click"]
+        X_train = df_train.drop(columns=["is_click"])
+        y_train = df_train["is_click"]
 
-        X_test = df_train_val.drop(columns=["is_click"])
-        y_test = df_train_val["is_click"]
+        #X_test = df_train_val.drop(columns=["is_click"])
+        #y_test = df_train_val["is_click"]
+        X_test = df_test.drop(columns=["is_click"])
+        y_test = df_test["is_click"]
 
         # Create stratified folds for train set
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=100)
@@ -853,7 +819,7 @@ class DataPreprocessor:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the input CSV file")
-    parser.add_argument("--test_path", type=str, default="data/raw/X_test_1st.csv", help="Path to test file")
+    parser.add_argument("--test_path", type=str, default="data/raw/test.csv", help="Path to test file")
     parser.add_argument("--output_path", type=str, default="data/processed", help="Path to save the output data")
     parser.add_argument("--remove-outliers", action="store_true", help="Flag to remove outliers")
     parser.add_argument("--fillna", action="store_true", help="Flag to fill missing values")

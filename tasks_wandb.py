@@ -286,7 +286,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the preprocess_and_train_flow with optional parameters.")
     parser.add_argument("--csv_path", type=str, default="data/raw/train_dataset_full.csv", help="Path to the raw CSV file.")
     parser.add_argument("--output_path", type=str, default="data/processed", help="Path to save the processed data.")
-    parser.add_argument("--test_path", type=str, default="data/raw/X_test_1st.csv", help="Path to test file")
+    parser.add_argument("--test_path", type=str, default="data/raw/test.csv", help="Path to test file")
     parser.add_argument("--folds_dir", type=str, default="data/processed", help="Directory for folds.")
     parser.add_argument("--test_file", type=str, default="data/processed", help="Path to the test file.")
     parser.add_argument("--model_name", type=str, default="catboost", help="Name of the model.")
