@@ -20,12 +20,14 @@ from sklearn.ensemble import StackingClassifier
 
 
 class ModelTrainer:
-    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",callback=None, params=None):
+    def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",
+                 callback=None, params=None, best_features=None):
         self.folds_dir = Path(folds_dir)
         self.test_file = Path(test_file)
         self.model_name = model_name
         self.callback = callback
-        self.params = params
+        self.params = params,
+        self.best_features = best_features
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -177,7 +179,6 @@ class ModelTrainer:
         # add to study.best_params the constant parameters
         constant_params = {
              "iterations": 1000,
-                "eval_metric": "PRAUC:type=Classic",
                 "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
@@ -280,6 +281,9 @@ class ModelTrainer:
             self.logger.info(f"Processing fold {fold_index + 1}...")
 
             X_train, y_train, X_val, y_val = self.load_fold_data(fold_index)
+            if self.best_features is not None:
+                X_train = X_train[self.best_features]
+                X_val = X_val[self.best_features]
 
             cat_features = self.determine_categorical_features(X_train)
 
@@ -385,6 +389,8 @@ class ModelTrainer:
 
         self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
+        if self.best_features is not None:
+            X_test = X_test[self.best_features]
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
         y_test_pred = best_model.predict(X_test)
         test_f1 = f1_score(y_test, y_test_pred)
@@ -419,21 +425,20 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", type=int, default=50, help="Number of Optuna trials for hyperparameter tuning (default: 50)")
     parser.add_argument("--train", action="store_true", help="Flag to train the model")
     parser.add_argument("--params", type=str, default=None, help="Hyperparameters for the model")
+    parser.add_argument("--best_features", type=str, default=None, help="Best features for the model")
     parser.add_argument("--feature_selection", action="store_true", help="Flag to perform feature selection")
 
     args = parser.parse_args()
 
     trainer = ModelTrainer(folds_dir=args.folds_dir, test_file=args.test_file, 
-                           model_name=args.model_name, params=args.params)
+                           model_name=args.model_name, params=args.params, best_features=args.best_features)
 
     if args.tune:
         X_train, y_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl"), pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
         cat_features = trainer.determine_categorical_features(X_train)
         trainer.hyperparameter_tuning(X_train, y_train, cat_features, n_trials=args.n_trials, run_id=args.run_id)
 
-    if args.train:
-        trainer.train_and_evaluate()
-    
+
     if args.feature_selection:
         trainer = ModelTrainer(
             folds_dir=args.folds_dir,
@@ -444,3 +449,8 @@ if __name__ == "__main__":
         X_train = pd.read_pickle(Path(args.folds_dir) / "X_train.pkl")
         y_train = pd.read_pickle(Path(args.folds_dir) / "y_train.pkl").squeeze()
         trainer.feature_selection(X_train, y_train, n_trials=args.n_trials, run_id=args.run_id)
+
+    if args.train:
+        trainer.train_and_evaluate()
+    
+    
