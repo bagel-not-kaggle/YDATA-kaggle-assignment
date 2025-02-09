@@ -1,6 +1,7 @@
 import sys
 import os
 from pathlib import Path
+import numpy as np
 
 # Add the parent directory to system path before other imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +17,7 @@ from preprocess import DataPreprocessor
 class StreamlitApp:
     def __init__(self):
         st.set_page_config(
-            page_title="DSiP Prediction App",
+            page_title="CTR Prediction App",
             page_icon="🎯",
             layout="wide"
         )
@@ -50,8 +51,8 @@ class StreamlitApp:
 
         return ordered_df
 
-    def prepare_categorical_features(self, df, cat_features):
-        """Prepare categorical features for CatBoost"""
+    def prepare_features(self, df, cat_features):
+        """Prepare features for CatBoost"""
         df = df.copy()
 
         # First ensure correct column order
@@ -64,11 +65,18 @@ class StreamlitApp:
                 cat_indices.append(i)
                 # Convert to string
                 df[feature] = df[feature].astype(str)
+            else:
+                # For numerical features, replace 'missing' with np.nan and then with 0
+                if feature in df.columns and df[feature].dtype == 'object':
+                    df[feature] = df[feature].replace('missing', np.nan)
+                    df[feature] = pd.to_numeric(df[feature], errors='coerce')
+                    df[feature] = df[feature].fillna(0)
 
         # Display debug information
         st.write("Feature names from model:", self.feature_names)
         st.write("Actual columns in data:", df.columns.tolist())
         st.write("Categorical feature indices:", cat_indices)
+        st.write("Data types after preparation:", df.dtypes)
 
         return df, cat_indices
 
@@ -101,6 +109,12 @@ class StreamlitApp:
         The file should be a CSV containing the required features for prediction.
         """)
 
+        # Initialize session state for predictions if not exists
+        if 'predictions' not in st.session_state:
+            st.session_state.predictions = None
+        if 'probabilities' not in st.session_state:
+            st.session_state.probabilities = None
+
         uploaded_file = st.file_uploader("Upload test data (CSV)", type=['csv'])
 
         if uploaded_file is not None:
@@ -123,8 +137,8 @@ class StreamlitApp:
                             # Get categorical features
                             cat_features = processed_df.select_dtypes(include=['object', 'category']).columns.tolist()
 
-                            # Prepare categorical features and ensure column order
-                            processed_df, cat_indices = self.prepare_categorical_features(processed_df, cat_features)
+                            # Prepare features and ensure column order
+                            processed_df, cat_indices = self.prepare_features(processed_df, cat_features)
 
                             # Create CatBoost Pool
                             st.write("Creating prediction pool...")
@@ -134,40 +148,18 @@ class StreamlitApp:
                             # Create pool with categorical feature indices
                             test_pool = Pool(
                                 data=processed_df,
-                                cat_features=cat_indices  # Use indices instead of names
+                                cat_features=cat_indices
                             )
 
-                            # Generate predictions
-                            predictions = self.model.predict_proba(test_pool)[:, 1]
+                            # Generate probability predictions
+                            probabilities = self.model.predict_proba(test_pool)[:, 1]
 
-                            # Create DataFrame with predictions
-                            predictions_df = pd.DataFrame(predictions)
+                            # Convert probabilities to binary predictions using threshold
+                            predictions = (probabilities >= 0.5).astype(int)
 
-                            # Save predictions without header and index
-                            predictions_csv = predictions_df.to_csv(index=False, header=False)
-
-                            # Display predictions preview
-                            st.subheader("Predictions Preview (First 5 rows)")
-                            st.write(predictions_df.head())
-
-                            # Add download button
-                            st.download_button(
-                                label="Download Predictions",
-                                data=predictions_csv,
-                                file_name="predictions.csv",
-                                mime="text/csv"
-                            )
-
-                            # Show prediction statistics
-                            st.subheader("Prediction Statistics")
-                            st.write(f"Number of predictions: {len(predictions)}")
-                            st.write(f"Mean prediction score: {predictions.mean():.4f}")
-                            st.write(f"Prediction range: {predictions.min():.4f} to {predictions.max():.4f}")
-
-                            # Distribution plot
-                            st.subheader("Prediction Distribution")
-                            hist_data = pd.DataFrame(predictions, columns=['Probability'])
-                            st.bar_chart(hist_data.Probability.value_counts(bins=10).sort_index())
+                            # Store in session state
+                            st.session_state.predictions = predictions
+                            st.session_state.probabilities = probabilities
 
                         except Exception as e:
                             st.error(f"Error generating predictions: {str(e)}")
@@ -184,6 +176,36 @@ class StreamlitApp:
             except Exception as e:
                 st.error(f"Error reading file: {str(e)}")
                 raise
+
+        # Display predictions if they exist
+        if st.session_state.predictions is not None:
+            # Create DataFrame with predictions
+            predictions_df = pd.DataFrame(st.session_state.predictions, columns=['is_click'])
+
+            # Display predictions preview
+            st.subheader("Predictions Preview (First 5 rows)")
+            st.write(predictions_df.head())
+
+            # Add download button
+            st.download_button(
+                label="Download Predictions",
+                data=predictions_df.to_csv(index=False, header=False),
+                file_name="predictions.csv",
+                mime="text/csv"
+            )
+
+            # Show prediction statistics
+            st.subheader("Prediction Statistics")
+            st.write(f"Number of predictions: {len(st.session_state.predictions)}")
+            st.write(f"Mean prediction (after threshold): {st.session_state.predictions.mean():.4f}")
+            st.write(
+                f"Original probability range: {st.session_state.probabilities.min():.4f} to {st.session_state.probabilities.max():.4f}")
+
+            # Distribution plot of binary predictions
+            st.subheader("Prediction Distribution")
+            hist_data = pd.DataFrame(st.session_state.predictions, columns=['Click'])
+            click_counts = hist_data['Click'].value_counts().sort_index()
+            st.bar_chart(click_counts)
 
     def run(self):
         """Run the Streamlit app"""
