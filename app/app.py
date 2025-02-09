@@ -7,7 +7,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-# Now import other modules
 import streamlit as st
 import pandas as pd
 from catboost import CatBoostClassifier, Pool
@@ -25,13 +24,53 @@ class StreamlitApp:
         try:
             self.model = CatBoostClassifier()
             self.model.load_model("models/catboost_model.cbm")
+            # Get feature names from the model
+            self.feature_names = self.model.feature_names_
             st.sidebar.success("Model loaded successfully!")
+            st.sidebar.write("Model features:", self.feature_names)
         except Exception as e:
             st.sidebar.error(f"Error loading model: {str(e)}")
 
-    def get_categorical_features(self, df):
-        """Get list of categorical feature names"""
-        return [i for i, dtype in enumerate(df.dtypes) if dtype == 'category']
+    def ensure_column_order(self, df):
+        """Ensure columns are in the correct order based on model's feature names"""
+        if not hasattr(self, 'feature_names') or not self.feature_names:
+            raise ValueError("Model feature names not available")
+
+        # Create a new DataFrame with columns in the correct order
+        ordered_df = pd.DataFrame()
+
+        # Add columns in the order expected by the model
+        for feature in self.feature_names:
+            if feature in df.columns:
+                ordered_df[feature] = df[feature]
+            else:
+                st.warning(f"Missing feature: {feature}")
+                # Add a placeholder column if needed
+                ordered_df[feature] = "missing"
+
+        return ordered_df
+
+    def prepare_categorical_features(self, df, cat_features):
+        """Prepare categorical features for CatBoost"""
+        df = df.copy()
+
+        # First ensure correct column order
+        df = self.ensure_column_order(df)
+
+        # Get categorical feature indices based on model's feature names
+        cat_indices = []
+        for i, feature in enumerate(self.feature_names):
+            if feature in cat_features:
+                cat_indices.append(i)
+                # Convert to string
+                df[feature] = df[feature].astype(str)
+
+        # Display debug information
+        st.write("Feature names from model:", self.feature_names)
+        st.write("Actual columns in data:", df.columns.tolist())
+        st.write("Categorical feature indices:", cat_indices)
+
+        return df, cat_indices
 
     def preprocess_test_data(self, df):
         """Preprocess test data using the preprocessor"""
@@ -73,7 +112,7 @@ class StreamlitApp:
                 st.subheader("Data Preview")
                 st.write(df.head())
                 st.write("Data shape:", df.shape)
-                st.write("Columns:", df.columns.tolist())
+                st.write("Original columns:", df.columns.tolist())
 
                 if st.button("Generate Predictions"):
                     with st.spinner("Preprocessing data and generating predictions..."):
@@ -81,13 +120,21 @@ class StreamlitApp:
                             # Preprocess the test data
                             processed_df = self.preprocess_test_data(df)
 
-                            # Get categorical feature indices
-                            cat_features = self.get_categorical_features(processed_df)
+                            # Get categorical features
+                            cat_features = processed_df.select_dtypes(include=['object', 'category']).columns.tolist()
 
-                            # Create CatBoost Pool with categorical features
+                            # Prepare categorical features and ensure column order
+                            processed_df, cat_indices = self.prepare_categorical_features(processed_df, cat_features)
+
+                            # Create CatBoost Pool
+                            st.write("Creating prediction pool...")
+                            st.write("Categorical features:", cat_features)
+                            st.write("Final column order:", processed_df.columns.tolist())
+
+                            # Create pool with categorical feature indices
                             test_pool = Pool(
                                 data=processed_df,
-                                cat_features=cat_features
+                                cat_features=cat_indices  # Use indices instead of names
                             )
 
                             # Generate predictions
@@ -130,6 +177,8 @@ class StreamlitApp:
                                 st.write("Processed data shape:", processed_df.shape)
                                 st.write("Processed data columns:", processed_df.columns.tolist())
                                 st.write("Data types:", processed_df.dtypes)
+                                st.write("Categorical features:", cat_features)
+                                st.write("Feature names from model:", self.feature_names)
                             raise
 
             except Exception as e:
