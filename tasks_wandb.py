@@ -281,7 +281,8 @@ def preprocess_and_train_flow(
             with open(params, "r") as f:
                 best_params = json.load(f)
 
-        train_model(best_params_path, folds_dir, test_file, model_name, wandb_callback, run_id)
+        train_model(best_params_path, folds_dir, test_file, 
+                    model_name, wandb_callback, run_id, best_features)
 
 
     wandb.finish()

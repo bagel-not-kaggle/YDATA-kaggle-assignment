@@ -26,7 +26,7 @@ class ModelTrainer:
         self.test_file = Path(test_file)
         self.model_name = model_name
         self.callback = callback
-        self.params = params,
+        self.params = params
         self.best_features = best_features
 
         logging.basicConfig(level=logging.INFO)
@@ -430,6 +430,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    
+
+    if args.best_features:
+        args.best_features = args.best_features.split(',')
+    else:
+        args.best_features = None
+    
     trainer = ModelTrainer(folds_dir=args.folds_dir, test_file=args.test_file, 
                            model_name=args.model_name, params=args.params, best_features=args.best_features)
 
