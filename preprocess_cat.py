@@ -394,28 +394,73 @@ class DataPreprocessor:
         df['day_of_week'] = df.DateTime.dt.dayofweek
         df['hour'] = df.DateTime.dt.hour
 
+        # binning hour to part_of_day
+        def part_of_day(hour):
+            if 6 <= hour < 12:
+                return 'morning'
+            elif 12 <= hour < 17:
+                return 'afternoon'
+            elif 17 <= hour < 22:
+                return 'evening'
+            else:
+                return 'night'
+
+        df['part_of_day'] = df.hour.apply(part_of_day)
+
         # hours_since_campaign_start
-        first_time_campaign_map = df.sort_values(by="DateTime").groupby("campaign_id")["DateTime"].first().to_dict()
-        df['hours_since_campaign_start'] = (df.DateTime - df.campaign_id.map(first_time_campaign_map)).dt.total_seconds()//3600
+        first_time_campaign_map = df.groupby("campaign_id")["DateTime"].min().to_dict()
+        df['hours_since_campaign_start'] = (df.DateTime - df.campaign_id.map(first_time_campaign_map)).dt.total_seconds() // 3600
 
-        # user_num_of_sessions
-        df['user_num_of_sessions']= df.groupby("user_id")["session_id"].transform('nunique')
-
-        # is_first_session (binary)
-        first_session_map = df.sort_values(by="DateTime").groupby("user_id")["session_id"].first().to_dict()
-        df["is_first_session"] = (df.session_id == df.user_id.map(first_session_map)).astype("int")
-
-        # user_num_of_days_in_webpage
-        df['user_num_of_days_in_webpage'] = df.groupby(["user_id", "webpage_id"])["day_of_week"].transform('nunique')
+        # user_total_num_of_sessions
+        df['user_total_num_of_sessions']= df.groupby("user_id")["session_id"].transform('nunique')
 
         # user_session_order (starting from 1)
         df['user_session_order'] = df.sort_values(by="DateTime").groupby('user_id')['DateTime'].rank(method='first')
+
+        # is_first_session (binary)
+        first_session_map = df.groupby("user_id")["DateTime"].min().to_dict()
+        df["is_first_session"] = (df.DateTime == df.user_id.map(first_session_map)).astype("int")
+
+        # user's total clicks before the current session (without leakage)
+        df['user_cum_clicks'] = df.sort_values(by="DateTime").groupby('user_id')['is_click'].transform(lambda x: x.cumsum().shift(fill_value=0))
+
+        # user_num_of_days_in_webpage
+        df['user_num_of_days_in_webpage'] = df.groupby(["user_id", "webpage_id"])["day_of_week"].transform('nunique')
 
         # campaign_num_of_products
         df['campaign_num_of_products'] = df.groupby("campaign_id")["product"].transform('nunique')
 
         # campaign_num_of_product_categories
         df['campaign_num_of_product_categories'] = df.groupby("campaign_id")["product_category_1"].transform('nunique')
+
+        # user's hours_since_last_session
+        df['hours_since_last_session'] = (df.sort_values(by="DateTime").groupby("user_id")["DateTime"].diff()).dt.total_seconds()/3600
+
+        # user's past CTR (without leakage)
+        df['user_past_ctr'] = df.sort_values('DateTime').groupby('user_id')['is_click'].transform(lambda s: s.expanding().mean().shift())
+
+        # user's hours hours_since_last_click (without leakage)
+        df['clicked_time'] = df['DateTime'].where(df['is_click'] == 1)
+        df['last_click_time'] = (df.sort_values(by="DateTime").groupby('user_id')['clicked_time'].transform(lambda s: s.ffill().shift()))
+        df['hours_since_last_click'] = (df['DateTime'] - df['last_click_time']).dt.total_seconds() / 3600
+        df.drop(columns=['clicked_time','last_click_time'], inplace=True)
+
+        # user's number of unique values of 'webpage_id', 'product_category_1', 'campaign_id', 'product' (without leakage)
+        def cumulative_unique_count(values):
+            """
+            For a 1D array/Series of values, return an array of
+            'number of unique values so far (before this row)'.
+            """
+            seen = set()
+            result = []
+            for val in values:
+                result.append(len(seen))
+                seen.add(val)
+            return result
+
+        cols = ['webpage_id', 'product_category_1', 'campaign_id', 'product']
+        for col in cols:
+            df['user_distinct_' + col] = df.sort_values("DateTime").groupby('user_id', group_keys=False)[col].apply(cumulative_unique_count)
 
         # # Generate time-based features
         # df['Day'] = df['DateTime'].dt.day
