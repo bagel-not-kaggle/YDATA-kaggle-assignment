@@ -161,7 +161,8 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
 """
 
 @task(name="train_model")
-def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_id,best_features=None):
+def train_model(trainer_params, folds_dir, test_file, model_name, callback,
+                 run_id, best_features=None, select_features=False):
     """
     Load best hyperparams from JSON (assuming it was saved by the tuner), then train and evaluate the model.
     """
@@ -171,7 +172,8 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback, run_
         model_name=model_name,
         callback=callback,
         params=trainer_params,
-        best_features=best_features
+        best_features=best_features,
+        select_features=select_features
     )
     results = trainer.train_and_evaluate()
     
@@ -216,7 +218,8 @@ def preprocess_and_train_flow(
     n_trials: int = 50,
     preprocess: bool = False,
     tune: bool = False,
-    feature_selection: bool = False,
+    best_features: bool = False,
+    select_features: bool = False,
     train: bool = False,
     params=None
 ):
@@ -242,7 +245,8 @@ def preprocess_and_train_flow(
         test_file=test_file,
         model_name=model_name,
         callback=wandb_callback,
-        params= params
+        params= params,
+        select_features=select_features
     )
     
     best_params = None
@@ -261,7 +265,7 @@ def preprocess_and_train_flow(
     )
 
     best_features = None
-    if feature_selection:
+    if best_features:
         best_features, feature_importance, feature_names  = feature_select(base_trainer, n_trials, run_id, folds_dir)
         wandb.config.update({"selected_features": list(best_features)})
         base_trainer = ModelTrainer(
@@ -282,7 +286,7 @@ def preprocess_and_train_flow(
                 best_params = json.load(f)
 
         train_model(best_params_path, folds_dir, test_file, 
-                    model_name, wandb_callback, run_id, best_features)
+                    model_name, wandb_callback, run_id, best_features, select_features)
 
 
     wandb.finish()
@@ -304,7 +308,8 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", type=int, default=50, help="Number of hyperparameter tuning trials.")
     parser.add_argument("--preprocess", action='store_true', help="Run preprocessing step.")
     parser.add_argument("--tune", action='store_true', help="Run hyperparameter tuning step.")
-    parser.add_argument("--feature_selection", action='store_true', help="Run feature selection step.")
+    parser.add_argument("--best_features", action='store_true', help="Run feature selection step.")
+    parser.add_argument("--select_features", action='store_true', help="Run feature selection step.")
     parser.add_argument("--train", action='store_true', help="Run training step.")
     parser.add_argument("--params", type=str, default=None, help="Path to the best hyperparameters JSON file.")
 
@@ -321,7 +326,8 @@ if __name__ == "__main__":
         n_trials=args.n_trials,
         preprocess=args.preprocess,
         tune=args.tune,
-        feature_selection=args.feature_selection,
+        best_features=args.best_features,
+        select_features= args.select_features,
         train=args.train,
         params=args.params
     )
