@@ -312,8 +312,8 @@ class DataPreprocessor:
                 median_value = df[column].median()
                 df[column] = df[column].fillna(median_value)
         return df
-    
-    def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None): ## For catboost
+
+    def determine_categorical_features(self, df: pd.DataFrame, cat_features: list = None):
         """
         Identify and process categorical features, ensuring compatibility with CatBoost.
         """
@@ -321,23 +321,26 @@ class DataPreprocessor:
         for col in cat_cols:
             if col in df.columns:
                 if col in ["campaign_id", "webpage_id", "user_group_id", "product_category"]:
-                    df[col] = df[col].astype("Int64").astype("category")
+                    # First convert to category, add 'missing', then convert numeric columns
+                    df[col] = df[col].astype("category")
+                    if "missing" not in df[col].cat.categories:
+                        df[col] = df[col].cat.add_categories("missing")
+                    df[col] = df[col].fillna("missing")
+
+                    # Only try to convert to numeric if all non-missing values are numeric
+                    numeric_mask = df[col] != "missing"
+                    if numeric_mask.any() and df.loc[numeric_mask, col].str.isnumeric().all():
+                        df.loc[numeric_mask, col] = pd.to_numeric(df.loc[numeric_mask, col], errors='coerce')
                 else:
                     df[col] = df[col].astype("category")
+                    if "missing" not in df[col].cat.categories:
+                        df[col] = df[col].cat.add_categories("missing")
+                    df[col] = df[col].fillna("missing")
+
         if cat_features:
             cat_features = [col for col in cat_features if col in df.columns]
         else:
             cat_features = df.select_dtypes(include=['object', 'category']).columns.tolist()
-
-        for col in cat_features:
-            if col in df.columns:
-
-                # Add "missing" only if it's not already a category
-                if "missing" not in df[col].cat.categories:
-                    df[col] = df[col].cat.add_categories("missing")
-
-                # Fill missing values with "missing"
-                df[col] = df[col].fillna("missing")
 
         return cat_features
     
@@ -545,26 +548,124 @@ class DataPreprocessor:
 
 
 
+    # def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
+    #     df = df.copy()
+    #
+    #
+    #     if subset == "train":
+    #         cols_to_smooth = ['user_id', 'product', 'campaign_id']
+    #         cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
+    #         # Compute smoothed CTR for the training dataset
+    #         df = self.smooth_ctr(df, cols_to_target_encode, subset="train")
+    #         df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
+    #
+    #
+    #     elif subset == "test":
+    #         # Apply CTR mapping from training set
+    #         cols_to_smooth = ['user_id', 'product', 'campaign_id']
+    #         cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
+    #         df = self.smooth_ctr(df, cols_to_target_encode, subset="test")
+    #         df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
+    #
+    #
+    #
+    #     # Generate time-based features
+    #     df['Day'] = df['DateTime'].dt.day
+    #     df['Hour'] = df['DateTime'].dt.hour
+    #     df['Minute'] = df['DateTime'].dt.minute
+    #     df['weekday'] = df['DateTime'].dt.weekday
+    #
+    #     # Fill missing values for time-based features
+    #     cols_to_fill = ["Day", "Hour", "Minute", "weekday"]
+    #     df[cols_to_fill] = self.mode_target(df, cols_to_fill, "user_id")
+    #
+    #     if df[cols_to_fill].isna().sum().sum() > 0:
+    #         df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
+    #
+    #     # Generate campaign-based features
+    #     df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
+    #     df['campaign_duration'] = df['DateTime'] - df['start_date']
+    #     df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / 3600
+    #
+    #     # Fill campaign duration missing values
+    #     # df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr), inplace=True)
+    #     df.loc[:, 'campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
+    #         df.groupby('campaign_id')['campaign_duration_hours'].transform(
+    #             lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr
+    #         )
+    #     )
+    #     # Drop unnecessary columns
+    #     df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True, errors="ignore")
+    #
+    #     # Handle categorical features
+    #     if self.catb:
+    #         self.determine_categorical_features(df)
+    #
+    #     # One-hot encoding if enabled
+    #     if self.use_dummies:
+    #         columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender"]
+    #         df = pd.get_dummies(df, columns=columns_to_d)
+    #
+    #     return df
     def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
         df = df.copy()
-        
+
+        # For test data, initialize CTR maps and target encoder from training data if not already done
+        if subset == "test" and (not hasattr(self, 'global_ctrs') or not hasattr(self, 'ctr_maps')):
+            self.logger.info("Initializing CTR maps and target encoder from training data...")
+            train_data = pd.read_csv("data/raw/train_dataset_full.csv")
+            train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
+
+            # Clean training data before using it
+            train_data = self.drop_completely_empty(train_data)
+            train_data = train_data.dropna(subset=["is_click"])
+
+            # Handle product category columns in training data
+            if all(col in train_data.columns for col in ["product_category_1", "product_category_2"]):
+                train_data["product_category"] = train_data["product_category_1"].fillna(
+                    train_data["product_category_2"])
+                train_data.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+
+            # Initialize global CTRs and maps
+            self.global_ctrs = {}
+            self.ctr_maps = {}
+
+            # Calculate global CTRs from training data
+            cols_to_encode = [c for c in train_data.columns if c not in ["session_id", "DateTime", "is_click"]]
+            for col in cols_to_encode:
+                if col in train_data.columns:
+                    # Compute global CTR
+                    self.global_ctrs[col] = train_data['is_click'].mean()
+
+                    # Compute clicks and views
+                    clicks = train_data.groupby(col)['is_click'].sum()
+                    views = train_data.groupby(col)['session_id'].count()
+
+                    # Compute smoothed CTR mapping
+                    alpha = 10  # smoothing parameter
+                    mapping = ((clicks + alpha * self.global_ctrs[col]) / (views + alpha))
+                    self.ctr_maps[col] = mapping.to_dict()
+
+            # Initialize target encoder with clean training data
+            self.te = TargetEncoder()
+            # Fill any remaining NaN values with 0 for target encoding
+            train_is_click = train_data["is_click"].fillna(0).astype(int)
+            self.te.fit(train_data[cols_to_encode], train_is_click)
+
+        # Handle product category columns in input data
+        if all(col in df.columns for col in ["product_category_1", "product_category_2"]):
+            df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
+            df.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+
+        # Continue with feature generation
+        cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
 
         if subset == "train":
-            cols_to_smooth = ['user_id', 'product', 'campaign_id']
-            cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
-            # Compute smoothed CTR for the training dataset
             df = self.smooth_ctr(df, cols_to_target_encode, subset="train")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="train")
-
-
         elif subset == "test":
-            # Apply CTR mapping from training set
-            cols_to_smooth = ['user_id', 'product', 'campaign_id']
-            cols_to_target_encode = [c for c in df.columns if c not in ["session_id", "DateTime", "is_click"]]
             df = self.smooth_ctr(df, cols_to_target_encode, subset="test")
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
-
-            
 
         # Generate time-based features
         df['Day'] = df['DateTime'].dt.day
@@ -585,14 +686,15 @@ class DataPreprocessor:
         df['campaign_duration_hours'] = df['campaign_duration'].dt.total_seconds() / 3600
 
         # Fill campaign duration missing values
-        # df['campaign_duration_hours'].fillna(df.groupby('campaign_id')['campaign_duration_hours'].transform(lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr), inplace=True)
         df.loc[:, 'campaign_duration_hours'] = df['campaign_duration_hours'].fillna(
             df.groupby('campaign_id')['campaign_duration_hours'].transform(
-                lambda x: x.mode().iloc[0] if not x.mode().empty else self.global_ctr
+                lambda x: x.mode().iloc[0] if not x.mode().empty else 0
             )
         )
+
         # Drop unnecessary columns
-        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True, errors="ignore")
+        df.drop(columns=['DateTime', 'start_date', 'campaign_duration', 'session_id', 'user_id'], inplace=True,
+                errors="ignore")
 
         # Handle categorical features
         if self.catb:
@@ -604,7 +706,6 @@ class DataPreprocessor:
             df = pd.get_dummies(df, columns=columns_to_d)
 
         return df
-
     
     ########################################################################################################################################################
     
@@ -698,6 +799,7 @@ class DataPreprocessor:
 
     def preprocess_test(self, df_test: pd.DataFrame) -> pd.DataFrame:
         try:
+            # Load training data for reference - this will give us the correct column order
             train_data = pd.read_csv("data/raw/train_dataset_full.csv")
             train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
             train_data = self.drop_completely_empty(train_data)
@@ -719,13 +821,23 @@ class DataPreprocessor:
                     mapping = ((clicks + alpha * self.global_ctrs[col]) / (views + alpha))
                     self.ctr_maps[col] = mapping.to_dict()
 
+            # Process training data minimally to get feature order
+            train_features = train_data.drop(columns=["session_id", "DateTime", "is_click"], errors='ignore')
+            train_column_order = train_features.columns.tolist()
+
+            # Initialize preprocessing
             df_test = self.drop_completely_empty(df_test).copy()
             df_test = self.drop_session_id(df_test)
             if "product_category_1" in df_test.columns and "product_category_2" in df_test.columns:
                 df_test["product_category"] = df_test["product_category_1"].fillna(df_test["product_category_2"])
                 df_test.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+            df_test = self.drop_session_id(df_test)  # Using the new function
+
+            # Handle user_group_id
             df_test = self.decrease_test_user_group_id(df_test)
             df_test = self.replace_test_user_depth_to_training(train_data, df_test)
+
+            # Add is_click column for feature generation (needed for preprocessing)
             df_test["is_click"] = -1
             df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
             if self.fillna:
@@ -734,6 +846,19 @@ class DataPreprocessor:
             if self.remove_outliers:
                 df_test = self.remove_outliers(df_test)
             df_test = self.feature_generation(df_test, subset="test")
+
+            # Ensure column order matches training data
+            # First identify any new columns from feature generation
+            generated_columns = [col for col in df_test.columns if col not in train_column_order and col != 'is_click']
+
+            # Create final column order: original columns followed by generated columns
+            final_column_order = [col for col in train_column_order if col in df_test.columns] + generated_columns
+
+            # Reorder columns
+            df_test = df_test[final_column_order]
+
+            # Handle categorical features
+            self.determine_categorical_features(df_test)
             return df_test
 
         except Exception as e:
