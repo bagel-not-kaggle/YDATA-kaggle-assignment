@@ -83,10 +83,7 @@ class ModelTrainer:
                 "random_strength": trial.suggest_float("random_strength", 1.5, 5),
                 "rsm": trial.suggest_float("rsm", 0.6, 1.0),
                 "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 25),
-                #"bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
-                #"grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise"]),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
-                #"class_weights": [1, 1 / trial.suggest_float("class_weight_ratio", 1.0, 10.0)],
                 "iterations": 1000,
                 "eval_metric": trial.suggest_categorical("eval_metric", ["F1", "PRAUC:type=Classic"]),
                 "auto_class_weights": "Balanced",
@@ -103,7 +100,6 @@ class ModelTrainer:
                 params["subsample"] = trial.suggest_float("subsample", 0.5, 0.9)
                 params["grow_policy"] = "SymmetricTree"
 
-            # After setting grow_policy, we can check if we need min_data_in_leaf
             if params['grow_policy'] == 'Depthwise':    
                 params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 18)
             elif params['grow_policy'] == 'Lossguide':
@@ -116,20 +112,31 @@ class ModelTrainer:
             model = CatBoostClassifier(**params)
 
             # Cross-validation
-            skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=44)
+            #skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=44)
             scores = []
 
-            for fold_index, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
+            #for fold_index, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
                 # Create train-validation splits
-                X_train_cv, X_val_cv = X_train.iloc[train_idx], X_train.iloc[val_idx]
-                y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
+                #X_train_cv, X_val_cv = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                #y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
 
                 # Check if both classes are present in the training and validation sets
+            for fold_index in range(5):
+                self.logger.info(f"Processing fold {fold_index + 1}...")
+
+                X_train_cv, y_train_cv, X_val_cv, y_val_cv = self.load_fold_data(fold_index)
+                #self.best_features = cat``
+                if self.best_features is not None:
+                    X_train = X_train[self.best_features]
+                    X_val = X_val[self.best_features]
+
                 if len(np.unique(y_train_cv)) < 2 or len(np.unique(y_val_cv)) < 2:
                     self.logger.warning(f"Fold {fold_index}: Skipping due to only one class in y_train_cv or y_val_cv")
                     continue
 
                 # Train the model
+                #best_fe
+
                 model.fit(
                     X_train_cv,
                     y_train_cv,
@@ -281,6 +288,7 @@ class ModelTrainer:
             self.logger.info(f"Processing fold {fold_index + 1}...")
 
             X_train, y_train, X_val, y_val = self.load_fold_data(fold_index)
+            #self.best_features = cat``
             if self.best_features is not None:
                 X_train = X_train[self.best_features]
                 X_val = X_val[self.best_features]
@@ -290,20 +298,7 @@ class ModelTrainer:
             if self.model_name == "catboost":
                 model = CatBoostClassifier(
                 cat_features=cat_features,
-                **params,
-                #auto_class_weights='Balanced',
-                #max_depth=5,
-            #colsample_bylevel=0.7,
-                #bagging_temperature=0.4,
-                #grow_policy='SymmetricTree',
-            # one_hot_max_size = 40,
-            # learning_rate=0.1,
-            #  subsample=.67,   #lower subsample showed progress
-            #  max_leaves= 64, #only with lossguide
-                #bootstrap_type = "Bayesian", #Bayesian uses the posterior probability of the object 
-                                            #to sample the trees in the growing process. Good for regularization and overfitting control.
-            # bootstrap_type='Bernoulli', #Bernoulli is Stochastic Gradient Boosting on random subsets of features, faster and less overfitting
-                )
+                **params)
             elif self.model_name == "stacking":
                 X_train = self.fill_missing_with_mode(X_train)
                 X_val = self.fill_missing_with_mode(X_val)
@@ -384,7 +379,6 @@ class ModelTrainer:
         self.logger.info(f"Loading test data from: {self.test_file}")
         
         
-        #X_test_1st = pd.read_pickle(self.folds_dir / "X_test_DoNotTouch.pkl")
         
 
         self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
@@ -394,14 +388,11 @@ class ModelTrainer:
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
         y_test_pred = best_model.predict(X_test)
         test_f1 = f1_score(y_test, y_test_pred)
-        #y_test_pred_1st = best_model.predict(X_test_1st)
-        #save as predictions without indices and labels
+
         if self.model_name == "catboost":
             predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
             predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
-            #predictions = pd.DataFrame(y_test_pred_1st, columns=['is_click'])
-            #predictions.to_csv(f'data/predictions/predictions{self.model_name}.csv', index=False)
-            #self.logger.info(f"Prediction was saved with {predictions.shape[0]} rows to: data/predictions/predictions{self.model_name}.csv")
+
         self.logger.info(f"F1 score on test set: {test_f1}")
         if self.callback:
             self.callback({"test_f1": test_f1})

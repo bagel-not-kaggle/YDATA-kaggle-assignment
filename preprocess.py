@@ -616,157 +616,124 @@ class DataPreprocessor:
     """
     
 
-    def preprocess(self, df_train: pd.DataFrame, df_test) -> tuple:
+    def preprocess(self, df_train: pd.DataFrame, df_test: pd.DataFrame) -> tuple:
+        # Initial cleaning steps that do not involve target-dependent feature generation
         df_train = self.drop_completely_empty(df_train).copy()
-
         df_train = self.drop_session_id_or_is_click(df_train)
-
-        df_test = self.decrease_test_user_group_id(df_test) 
-
+        df_test = self.decrease_test_user_group_id(df_test)
         df_test = self.replace_test_user_depth_to_training(df_train, df_test)
-
-        #df = self.concat_train_test(df_train, df_test)
-
-        self.logger.info(f"Total number of missing values in the train dataset: {df_train.isna().sum().sum()}")
-        self.logger.info(f"Total number of missing values in the test dataset: {df_test.isna().sum().sum()}")
-        #df = self.deterministic_fill(df)
+        
+        self.logger.info(f"Total missing values in train dataset: {df_train.isna().sum().sum()}")
+        self.logger.info(f"Total missing values in test dataset: {df_test.isna().sum().sum()}")
+        
         df_train = self.deterministic_fill(df_train)
         df_test = self.deterministic_fill(df_test)
-        self.logger.info(f"Total number of missing values in the train dataset after deterministic_fill: {df_train.isna().sum().sum()}")
-        self.logger.info(f"Total number of missing values in the test dataset after deterministic_fill: {df_test.isna().sum().sum()}")
-
-        #df_train, df_test = self.split_to_train_test(df)
+        
         df_train["DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
         df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
-
+        
         if self.remove_outliers:
             df_train = self.remove_outliers(df_train)
             df_test = self.remove_outliers(df_test)
-
         if self.fillna:
             df_train = self.fill_missing_values(df_train)
             df_test = self.fill_missing_values(df_test)
-
         
-        
-        #df_train_subset, df_train_val = train_test_split(
-        #df_train, test_size=0.2, random_state=100, stratify=df_train["is_click"]
-        #)
-
-        ### 🔹 Step 2: **Apply feature generation separately on both**
-        df_train = self.feature_generation(df_train, subset="train")
-        #df_train_val = self.feature_generation(df_train_val, subset="test")
-        df_test = self.feature_generation(df_test, subset="test")
-        ### 🔹 Step 3: **Extract X_train, y_train from df_train_subset & X_test, y_test from df_train_val**
-        X_train = df_train.drop(columns=["is_click"])
-        y_train = df_train["is_click"]
-
-        #X_test = df_train_val.drop(columns=["is_click"])
-        #y_test = df_train_val["is_click"]
-        X_test = df_test.drop(columns=["is_click"])
-        y_test = df_test["is_click"]
-
-        # Create stratified folds for train set
+        # Create stratified folds from the raw training data (without feature generation)
+        y = df_train["is_click"]
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=100)
         fold_datasets = []
-
-        for fold, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
-            X_train_fold = X_train.iloc[train_idx]
-            y_train_fold = y_train.iloc[train_idx]
-            X_val_fold = X_train.iloc[val_idx]
-            y_val_fold = y_train.iloc[val_idx]
-            fold_datasets.append((X_train_fold, y_train_fold, X_val_fold, y_val_fold))
+        
+        for fold, (train_idx, val_idx) in enumerate(skf.split(df_train, y)):
+            train_fold = df_train.iloc[train_idx].copy()
+            val_fold = df_train.iloc[val_idx].copy()
+            
+            # Reset any mapping parameters to ensure independence per fold
+            self.ctr_maps = {}
+            self.global_ctrs = {}
+            self.te = None
+            
+            # Perform feature generation on the training fold (fitting transformations)
+            train_fold_processed = self.feature_generation(train_fold, subset="train")
+            # Use the transformations learned on the training fold to process the validation fold
+            val_fold_processed = self.feature_generation(val_fold, subset="test")
+            
+            fold_datasets.append((
+                train_fold_processed.drop(columns=["is_click"]), 
+                train_fold_processed["is_click"],
+                val_fold_processed.drop(columns=["is_click"]), 
+                val_fold_processed["is_click"]
+            ))
+            
             self.callback({
-            f"fold_{fold}_train_dataset": X_train_fold,
-            f"fold_{fold}_val_dataset": X_val_fold,
-            f"fold_{fold}_train_target": y_train_fold,
-            f"fold_{fold}_val_target": y_val_fold
+                f"fold_{fold}_train_dataset": train_fold_processed.drop(columns=["is_click"]),
+                f"fold_{fold}_val_dataset": val_fold_processed.drop(columns=["is_click"]),
+                f"fold_{fold}_train_target": train_fold_processed["is_click"],
+                f"fold_{fold}_val_target": val_fold_processed["is_click"]
             })
+        
+        # Process the entire training set for final model training
+        self.ctr_maps = {}
+        self.global_ctrs = {}
+        self.te = None
+        df_train_processed = self.feature_generation(df_train, subset="train")
+        X_train = df_train_processed.drop(columns=["is_click"])
+        y_train = df_train_processed["is_click"]
+        
+        # Process the test set using the full training data parameters
+        df_test_processed = self.feature_generation(df_test, subset="test")
+        X_test = df_test_processed.drop(columns=["is_click"])
+        y_test = df_test_processed["is_click"]
+        
         self.callback({
             "X_train": X_train,
             "X_test": X_test,
             "y_train": y_train,
             "y_test": y_test,
-            "X_test_1st": df_test
+            "X_test_1st": df_test_processed
         })
-        self.logger.info("Created stratified folds for training data.")
-
-        return df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test
+        self.logger.info("Created stratified folds with per-fold feature generation.")
+        
+        return df_train_processed, X_train, X_test, y_train, y_test, fold_datasets, df_test_processed
 
     def preprocess_test(self, df_test: pd.DataFrame) -> pd.DataFrame:
-        """Preprocess a test file independently"""
         try:
-            # Load and clean training data
             train_data = pd.read_csv("data/raw/train_dataset_full.csv")
             train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
-
-            # Clean training data
             train_data = self.drop_completely_empty(train_data)
             train_data.dropna(subset=["is_click"], inplace=True)
-
-            # Transform product category columns in training data
             train_data["product_category"] = train_data["product_category_1"].fillna(train_data["product_category_2"])
             train_data.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-
-            # Initialize target encoder with clean training data
             cols_to_encode = [c for c in train_data.columns if c not in ["session_id", "DateTime", "is_click"]]
             self.te = TargetEncoder()
             self.te.fit(train_data[cols_to_encode], train_data["is_click"].astype(int))
-
-            # Initialize global CTRs and maps from training data
             self.global_ctrs = {}
             self.ctr_maps = {}
 
-            # Calculate global CTRs from training data
             for col in cols_to_encode:
                 if col in train_data.columns:
-                    # Compute global CTR
                     self.global_ctrs[col] = train_data['is_click'].mean()
-
-                    # Compute clicks and views
                     clicks = train_data.groupby(col)['is_click'].sum()
                     views = train_data.groupby(col)['session_id'].count()
-
-                    # Compute smoothed CTR mapping
-                    alpha = 10  # smoothing parameter
+                    alpha = 10
                     mapping = ((clicks + alpha * self.global_ctrs[col]) / (views + alpha))
                     self.ctr_maps[col] = mapping.to_dict()
 
-            # Initial preprocessing
             df_test = self.drop_completely_empty(df_test).copy()
-            df_test = self.drop_session_id(df_test)  # Using the new function
-
-            # Transform product category columns in test data
+            df_test = self.drop_session_id(df_test)
             if "product_category_1" in df_test.columns and "product_category_2" in df_test.columns:
                 df_test["product_category"] = df_test["product_category_1"].fillna(df_test["product_category_2"])
                 df_test.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-
-            # Handle user_group_id
             df_test = self.decrease_test_user_group_id(df_test)
-
-            # Handle user_depth using training data
             df_test = self.replace_test_user_depth_to_training(train_data, df_test)
-
-            # Add is_click column for feature generation
             df_test["is_click"] = -1
-
-            # Convert DateTime
             df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
-
-            # Handle missing values
             if self.fillna:
                 df_test = self.fill_missing_values(df_test)
-
-            # Apply deterministic fill
             df_test = self.deterministic_fill(df_test)
-
-            # Handle outliers if needed
             if self.remove_outliers:
                 df_test = self.remove_outliers(df_test)
-
-            # Generate features
             df_test = self.feature_generation(df_test, subset="test")
-
             return df_test
 
         except Exception as e:
@@ -779,7 +746,6 @@ class DataPreprocessor:
     \___ \ / _` | \ / / _ |
      ___) | (_| |\ V /  __/
     |____/ \__,_| \_/ \___|
-                        
     """
 
     def save_data(self, df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test):
@@ -791,7 +757,6 @@ class DataPreprocessor:
             y_test.to_pickle(self.output_path / "y_test.pkl")
             df_test.to_pickle(self.output_path / "df_TEST_DoNotTouch.pkl")
             
-            # Save folds
             for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(fold_datasets):
                 X_train_fold.to_pickle(self.output_path / f"X_train_fold_{i}.pkl")
                 y_train_fold.to_pickle(self.output_path / f"y_train_fold_{i}.pkl")
@@ -807,7 +772,6 @@ class DataPreprocessor:
             y_test.to_csv(self.output_path / "y_test.csv", index=False, header=True)
             df_test.to_csv(self.output_path / "df_TEST_DoNotTouch.csv", index=False)
             
-            # Save folds
             for i, (X_train_fold, y_train_fold, X_val_fold, y_val_fold) in enumerate(fold_datasets):
                 X_train_fold.to_csv(self.output_path / f"X_train_fold_{i}.csv", index=False)
                 y_train_fold.to_csv(self.output_path / f"y_train_fold_{i}.csv", index=False, header=True)
@@ -837,6 +801,6 @@ if __name__ == "__main__":
         save_as_pickle=args.save_as_pickle
     )
 
-    df_train,df_test = preprocessor.load_data(Path(args.csv_path), Path(args.test_path))
-    df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test = preprocessor.preprocess(df_train,df_test)
-    preprocessor.save_data(df_train, X_train, X_test, y_train, y_test, fold_datasets,df_test)
+    df_train, df_test = preprocessor.load_data(Path(args.csv_path), Path(args.test_path))
+    df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test = preprocessor.preprocess(df_train, df_test)
+    preprocessor.save_data(df_train, X_train, X_test, y_train, y_test, fold_datasets, df_test)
