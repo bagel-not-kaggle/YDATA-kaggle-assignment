@@ -459,9 +459,19 @@ class ModelTrainer:
         precision, recall, _ = precision_recall_curve(y_test, y_test_pred)
         test_prauc = auc(recall, precision)
 
+        if best_model is None:
+            best_model = model  # Fallback if no fold improved the PRAUC
+
         if self.model_name == "catboost":
             predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
             predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
+
+            # Ensure models directory exists before saving
+            Path("models").mkdir(parents=True, exist_ok=True)
+
+            best_model.save_model(f'models/best_model_{self.model_name}.cbm')
+            self.logger.info(f"Model saved at models/best_model_{self.model_name}.cbm")
+
 
         self.logger.info(f"PRAUC score on test set: {test_prauc}")
         if self.callback:
