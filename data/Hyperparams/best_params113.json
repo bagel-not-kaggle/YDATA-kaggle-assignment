@@ -1,0 +1,16 @@
+{
+    "depth": 10,
+    "learning_rate": 0.06981584132083725,
+    "l2_leaf_reg": 23.423831764431768,
+    "random_strength": 4.230672806611336,
+    "rsm": 0.6006144266779594,
+    "leaf_estimation_iterations": 21,
+    "bootstrap_type": "Bernoulli",
+    "eval_metric": "PRAUC:type=Classic",
+    "subsample": 0.6877408048364568,
+    "iterations": 1000,
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "verbose": 0
+}
