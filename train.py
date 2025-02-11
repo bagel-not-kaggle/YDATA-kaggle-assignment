@@ -98,7 +98,7 @@ class ModelTrainer:
             )
             self.optimized_features = selected_features['selected_features_names']
             self.logger.warning(f"Selected features: {self.optimized_features}")
-            
+
         def objective(trial):
             # Define hyperparameters to optimize
             params = {
@@ -159,6 +159,7 @@ class ModelTrainer:
                 if len(np.unique(y_train_cv)) < 2 or len(np.unique(y_val_cv)) < 2:
                     self.logger.warning(f"Fold {fold_index}: Skipping due to only one class in y_train_cv or y_val_cv")
                     continue
+                cat_features = self.determine_categorical_features(X_train_cv)
                 
                 if self.select_features:
                     X_train_cv = X_train_cv[self.optimized_features]
