@@ -384,7 +384,6 @@ class DataPreprocessor:
             self.global_ctrs = {}  # Store global CTRs
             
             for col in cols_to_encode:
-                # Compute clicks and views
                 df_train = df[df['is_click'] != -1].copy()
                 clicks = df_train.groupby(col)['is_click'].sum()
                 views = df_train.groupby(col)['session_id'].count()
