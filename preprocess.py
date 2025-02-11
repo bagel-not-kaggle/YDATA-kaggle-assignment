@@ -508,48 +508,7 @@ class DataPreprocessor:
     def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
         df = df.copy()
 
-        # For test data, initialize CTR maps and target encoder from training data if not already done
-        if subset == "test" and (not hasattr(self, 'global_ctrs') or not hasattr(self, 'ctr_maps')):
-            self.logger.info("Initializing CTR maps and target encoder from training data...")
-            train_data = pd.read_csv("data/raw/train_dataset_full.csv")
-            train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
-
-            # Clean training data before using it
-            train_data = self.drop_completely_empty(train_data)
-            train_data = train_data.dropna(subset=["is_click"])
-
-            # Handle product category columns in training data
-            if all(col in train_data.columns for col in ["product_category_1", "product_category_2"]):
-                train_data["product_category"] = train_data["product_category_1"].fillna(
-                    train_data["product_category_2"])
-                train_data.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-
-            # Initialize global CTRs and maps
-            self.global_ctrs = {}
-            self.ctr_maps = {}
-
-            # Calculate global CTRs from training data
-            cols_to_encode = [c for c in train_data.columns if c not in ["session_id", "DateTime", "is_click"]]
-            for col in cols_to_encode:
-                if col in train_data.columns:
-                    # Compute global CTR
-                    self.global_ctrs[col] = train_data['is_click'].mean()
-
-                    # Compute clicks and views
-                    clicks = train_data.groupby(col)['is_click'].sum()
-                    views = train_data.groupby(col)['session_id'].count()
-
-                    # Compute smoothed CTR mapping
-                    alpha = 10  # smoothing parameter
-                    mapping = ((clicks + alpha * self.global_ctrs[col]) / (views + alpha))
-                    self.ctr_maps[col] = mapping.to_dict()
-
-            # Initialize target encoder with clean training data
-            self.te = TargetEncoder()
-            # Fill any remaining NaN values with 0 for target encoding
-            train_is_click = train_data["is_click"].fillna(0).astype(int)
-            self.te.fit(train_data[cols_to_encode], train_is_click)
-
+        
         # Handle product category columns in input data
         if all(col in df.columns for col in ["product_category_1", "product_category_2"]):
             df["product_category"] = df["product_category_1"].fillna(df["product_category_2"])
@@ -639,6 +598,7 @@ class DataPreprocessor:
             df_test = self.fill_missing_values(df_test)
         
         # Create stratified folds from the raw training data (without feature generation)
+
         y = df_train["is_click"]
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=100)
         fold_datasets = []

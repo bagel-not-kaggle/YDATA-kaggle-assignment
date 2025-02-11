@@ -124,10 +124,10 @@ class ModelTrainer:
                 
                 "depth": trial.suggest_int("depth", 4, 12),
                 "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.15),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 15, 25),
-                "random_strength": trial.suggest_float("random_strength", 1.5, 5),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 16, 25),
+                "random_strength": trial.suggest_float("random_strength", 1.5, 4.8),
                 "rsm": trial.suggest_float("rsm", 0.6, 1.0),
-                "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 25),
+                "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 24),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 "iterations": 1000,
                 #"eval_metric": trial.suggest_categorical("eval_metric", ["F1", "PRAUC:type=Classic"]),
@@ -317,6 +317,7 @@ class ModelTrainer:
         best_model = None
         fold_scores_val = []
         fold_scores_train = []
+        self.chosen_features = None
         if self.params is not None:
             #read params
             with open(self.params, 'r') as f:
@@ -355,6 +356,7 @@ class ModelTrainer:
                 )
                 X_train_cv = X_train_cv[selected_features['selected_features_names']]
                 X_val_cv = X_val_cv[selected_features['selected_features_names']]
+
                 cat_features = self.determine_categorical_features(X_train_cv)
                 self.logger.warning(f"Selected features: {selected_features['selected_features_names']}")
 
@@ -433,6 +435,8 @@ class ModelTrainer:
             if fold_prauc > best_PRAUC:
                 best_PRAUC = fold_prauc
                 best_model = model
+                if self.select_features:
+                    self.chosen_features = X_train_cv.columns
         
         avg_prauc_train = sum(fold_scores_train) / len(fold_scores_train)
         self.logger.info(f"Average PRAUC train score across folds: {avg_prauc_train}")
@@ -455,6 +459,9 @@ class ModelTrainer:
         if self.best_features is not None:
             X_test = X_test[self.best_features]
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
+        #GEt the features of the best model to set the test data
+        if self.select_features:
+            X_test = X_test[self.chosen_features]
         y_test_pred = best_model.predict(X_test)
         precision, recall, _ = precision_recall_curve(y_test, y_test_pred)
         test_prauc = auc(recall, precision)
