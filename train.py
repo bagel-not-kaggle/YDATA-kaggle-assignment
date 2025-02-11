@@ -6,7 +6,8 @@ from pathlib import Path
 from sklearn.preprocessing import OneHotEncoder
 from catboost import CatBoostClassifier
 from sklearn.feature_selection import RFECV
-from sklearn.metrics import f1_score
+from sklearn.metrics import precision_recall_curve, auc
+
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import optuna
 import pickle
@@ -53,9 +54,7 @@ class ModelTrainer:
     
     def fill_missing_with_mode(self, X): # For naive stacking Model
         categorical_cols = X.select_dtypes(include=['category', 'object']).columns
-
         df_temp = X.copy()
-
         for col in categorical_cols:
             mode_value = df_temp.loc[df_temp[col] != "missing", col].mode()[0]
             mask = df_temp[col] == "missing"
@@ -76,22 +75,38 @@ class ModelTrainer:
 
         
         if self.select_features:
-            self.logger.warning("Feature selection is enabled. Performing feature selection before hyperparameter tuning.")
-            X_train_sub, X_val_sub, y_train_sub, y_val_sub = train_test_split(X_train, y_train,
-                                                                               test_size=0.2, random_state=42, 
-                                                                               stratify=y_train)
-            cat_features = self.determine_categorical_features(X_train_sub)
+
+            # Load and merge all fold datasets
+            X_train_all = []
+            X_val_all = []
+            y_train_all = []
+            y_val_all = []
+            
+            n_folds = len(list(self.folds_dir.glob("X_train_fold_*.pkl")))
+            for fold_index in range(n_folds):
+                X_train_fold, y_train_fold, X_val_fold, y_val_fold = self.load_fold_data(fold_index)
+                X_train_all.append(X_train_fold)
+                X_val_all.append(X_val_fold)
+                y_train_all.append(y_train_fold)
+                y_val_all.append(y_val_fold)
+            
+            # Concatenate all folds
+            X_train = pd.concat(X_train_all, axis=0)
+            X_val = pd.concat(X_val_all, axis=0)
+            y_train = pd.concat(y_train_all, axis=0)
+            y_val = pd.concat(y_val_all, axis=0)
+            cat_features = self.determine_categorical_features(X_train)
             with open("data/Hyperparams/best_params110.json", 'r') as f:
                 best_params = json.load(f)
             model = CatBoostClassifier(cat_features = cat_features, **best_params)
             self.logger.info("Starting feature selection")
             selected_features = model.select_features(
-                X=X_train_sub,
-                y=y_train_sub,
-                eval_set=(X_val_sub, y_val_sub),
+                X=X_train,
+                y=y_train,
+                eval_set=(X_val, y_val),
                 num_features_to_select=20,
                 train_final_model= False,
-                features_for_select=list(range(X_train_sub.shape[1])),
+                features_for_select=list(range(X_train.shape[1])),
                 algorithm="RecursiveByPredictionValuesChange",
                 logging_level="Verbose",
                 plot=False
@@ -111,7 +126,7 @@ class ModelTrainer:
                 "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 25),
                 "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
                 "iterations": 1000,
-                "eval_metric": trial.suggest_categorical("eval_metric", ["F1", "PRAUC:type=Classic"]),
+                #"eval_metric": trial.suggest_categorical("eval_metric", ["F1", "PRAUC:type=Classic"]),
                 "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
                 
@@ -134,19 +149,11 @@ class ModelTrainer:
             if self.callback:
                 self.callback({"trial_params": params})
 
-            # Initialize the model
+            ## Initialize the model
             model = CatBoostClassifier(**params)
 
-            # Cross-validation
-            #skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=44)
             scores = []
 
-            #for fold_index, (train_idx, val_idx) in enumerate(skf.split(X_train, y_train)):
-                # Create train-validation splits
-                #X_train_cv, X_val_cv = X_train.iloc[train_idx], X_train.iloc[val_idx]
-                #y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
-
-                # Check if both classes are present in the training and validation sets
             for fold_index in range(5):
                 self.logger.info(f"Processing fold {fold_index + 1}...")
 
@@ -178,26 +185,29 @@ class ModelTrainer:
                 # Predict on the validation set
                 y_pred_val = model.predict(X_val_cv)
 
-                # Calculate F1 score
+                # Calculate PRAUC score
                 try:
-                    score = f1_score(y_val_cv, y_pred_val)
+                    # Score using prauc
+                    precision, recall, _ = precision_recall_curve(y_val_cv, y_pred_val)
+                    score = auc(recall, precision)
+
                     scores.append(score)
-                    self.logger.info(f"Fold {fold_index}: F1 score = {score}")
+                    self.logger.info(f"Fold {fold_index}: PRAUC score = {score}")
                 except Exception as e:
-                    self.logger.error(f"Error calculating F1 score on fold {fold_index}: {e}")
+                    self.logger.error(f"Error calculating PRAUC score on fold {fold_index}: {e}")
                     continue
 
-            # Return the average F1 score across folds
+            # Return the average PRAUC score across folds
             mean_score = float(np.mean(scores) if scores else 0.0)
             trial_data = {
                 "trial_number": len(trials_data) + 1,
-                "f1_score": mean_score,
+                "PRAUC_score": mean_score,
                  }
             trials_data.append(trial_data)
 
             if self.callback:
                 self.callback({
-                    "mean_f1": mean_score,
+                    "mean_PRAUC": mean_score,
                     "trial_number": trial_data["trial_number"],
                     "trial_params": params  # Key change: separate hyperparameters
                 })
@@ -218,6 +228,7 @@ class ModelTrainer:
                 "auto_class_weights": "Balanced",
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
+                "eval_metric": "PRAUC:type=Classic",
                 "verbose": 0,
              }
         best_params = {**study.best_params, **constant_params}
@@ -298,7 +309,7 @@ class ModelTrainer:
         n_folds = len(list(self.folds_dir.glob("X_train_fold_*.pkl")))
         self.logger.info(f"Detected {n_folds} folds.")
         a = 0.06767396213210575
-        best_f1 = 0
+        best_PRAUC = 0
         best_model = None
         fold_scores_val = []
         fold_scores_train = []
@@ -310,7 +321,7 @@ class ModelTrainer:
             params = {'depth': 3, 'learning_rate': 0.12117083431119458, 
                       'l2_leaf_reg': 27.49102055289926, 'random_strength': 1.2079636934696745,
                         'grow_policy': 'SymmetricTree', 'bootstrap_type': 'MVS',
-                        'iterations': 1000, 'eval_metric': 'F1', 'auto_class_weights': 'Balanced',
+                        'iterations': 1000, 'eval_metric': 'PRAUC:type=Classic', 'auto_class_weights': 'Balanced',
                         'early_stopping_rounds': 100, 'random_seed': 42, 'verbose': 0}
 
         for fold_index in range(n_folds):
@@ -370,15 +381,16 @@ class ModelTrainer:
                 gb = GaussianNB()
                 
                 base_models = {'SGDClassifier': sgd, 'LogisticRegression': lr, 'ComplementNB': cb, 'GaussianNB': gb}
-                base_f1_scores = {}
+                base_PRAUC_scores = {}
 
                 for name, model in base_models.items():
                     model.fit(X_train_cv, y_train_cv)
                     y_pred_base = model.predict(X_val_cv)
                     y_pred_train = model.predict(X_train_cv)
-                    f1 = f1_score(y_val_cv, y_pred_base)
-                    base_f1_scores[name] = f1
-                    self.logger.info(f"{name} F1 score: {f1}")
+                    precision, recall, _ = precision_recall_curve(y_val_cv, y_pred_base)
+                    prauc = auc(recall, precision)
+                    base_PRAUC_scores[name] = prauc
+                    self.logger.info(f"{name} prauc score: {prauc}")
 
                 model = StackingClassifier(estimators=[('sgd', sgd), 
                                                        ('lr', lr),
@@ -399,32 +411,34 @@ class ModelTrainer:
 
             y_val_pred = model.predict(X_val_cv)
             y_train_pred = model.predict(X_train_cv)
-            fold_f1 = f1_score(y_val_cv, y_val_pred)
-            fold_f1_train = f1_score(y_train_cv, y_train_pred)
-            fold_scores_val.append(fold_f1)
-            fold_scores_train.append(fold_f1_train)
+            precision, recall, _ = precision_recall_curve(y_val_cv, y_val_pred)
+            fold_prauc = auc(recall, precision)
+            precision, recall, _ = precision_recall_curve(y_train_cv, y_train_pred)
+            fold_prauc_train = auc(recall, precision)
+            fold_scores_val.append(fold_prauc)
+            fold_scores_train.append(fold_prauc_train)
 
-            self.logger.info(f"Fold val {fold_index + 1} F1 score: {fold_f1}")
-            self.logger.info(f"Fold train {fold_index + 1} F1 score: {fold_f1_train}")
+            self.logger.info(f"Fold val {fold_index + 1} prauc score: {fold_prauc}")
+            self.logger.info(f"Fold train {fold_index + 1} prauc score: {fold_prauc_train}")
 
 
             if self.callback:
-                self.callback({f"fold_val_{fold_index + 1}_f1": fold_f1, 
-                                f"fold_train_{fold_index + 1}_f1": fold_f1_train})
+                self.callback({f"fold_val_{fold_index + 1}_prauc": fold_prauc, 
+                                f"fold_train_{fold_index + 1}_prauc": fold_prauc_train})
 
-            if fold_f1 > best_f1:
-                best_f1 = fold_f1
+            if fold_prauc > best_PRAUC:
+                best_PRAUC = fold_prauc
                 best_model = model
         
-        avg_f1_train = sum(fold_scores_train) / len(fold_scores_train)
-        self.logger.info(f"Average F1 train score across folds: {avg_f1_train}")
+        avg_prauc_train = sum(fold_scores_train) / len(fold_scores_train)
+        self.logger.info(f"Average PRAUC train score across folds: {avg_prauc_train}")
 
-        avg_f1_val = sum(fold_scores_val) / len(fold_scores_val)
-        self.logger.info(f"Average F1 val score across folds: {avg_f1_val}")
-        self.logger.info(f"Best F1 val score across folds: {best_f1}")
+        avg_prauc_val = sum(fold_scores_val) / len(fold_scores_val)
+        self.logger.info(f"Average PRAUC val score across folds: {avg_prauc_val}")
+        self.logger.info(f"Best PRAUC val score across folds: {best_PRAUC}")
 
         if self.callback:
-            self.callback({"average_f1": avg_f1_val, "best_f1": best_f1})
+            self.callback({"average_PRAUC_val": avg_prauc_val, "best_prauc_val": best_PRAUC})
           #                  "fold_scores_train": fold_scores_train})
 
         self.logger.info(f"Loading test data from: {self.test_file}")
@@ -438,21 +452,22 @@ class ModelTrainer:
             X_test = X_test[self.best_features]
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
         y_test_pred = best_model.predict(X_test)
-        test_f1 = f1_score(y_test, y_test_pred)
+        precision, recall, _ = precision_recall_curve(y_test, y_test_pred)
+        test_prauc = auc(recall, precision)
 
         if self.model_name == "catboost":
             predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
             predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
 
-        self.logger.info(f"F1 score on test set: {test_f1}")
+        self.logger.info(f"PRAUC score on test set: {test_prauc}")
         if self.callback:
-            self.callback({"test_f1": test_f1})
+            self.callback({"test_prauc": test_prauc})
         
         return  {
-        "avg_f1_train": avg_f1_train,
-        "avg_f1_val": avg_f1_val,
-        "best_f1": best_f1,
-        "test_f1": test_f1,
+        "avg_prauc_train": avg_prauc_train,
+        "avg_prauc_val": avg_prauc_val,
+        "best_prauc_val": best_PRAUC,
+        "test_prauc": test_prauc,
         "fold_scores_train": fold_scores_train,
         "fold_scores_val": fold_scores_val
         }
