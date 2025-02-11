@@ -321,16 +321,14 @@ class DataPreprocessor:
         for col in cat_cols:
             if col in df.columns:
                 if col in ["campaign_id", "webpage_id", "user_group_id", "product_category"]:
-                    # First convert to category, add 'missing', then convert numeric columns
-                    df[col] = df[col].astype("category")
+                    # Convert to string first and remove .0
+                    temp_values = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
+                    # Then convert to category with the processed values
+                    df[col] = pd.Categorical(temp_values)
+                    # Add missing category
                     if "missing" not in df[col].cat.categories:
                         df[col] = df[col].cat.add_categories("missing")
                     df[col] = df[col].fillna("missing")
-
-                    # Only try to convert to numeric if all non-missing values are numeric
-                    numeric_mask = df[col] != "missing"
-                    if numeric_mask.any() and df.loc[numeric_mask, col].str.isnumeric().all():
-                        df.loc[numeric_mask, col] = pd.to_numeric(df.loc[numeric_mask, col], errors='coerce')
                 else:
                     df[col] = df[col].astype("category")
                     if "missing" not in df[col].cat.categories:
@@ -343,6 +341,7 @@ class DataPreprocessor:
             cat_features = df.select_dtypes(include=['object', 'category']).columns.tolist()
 
         return cat_features
+
     
     ########################################################################################################################################################
 
@@ -418,47 +417,6 @@ class DataPreprocessor:
     ╚  └─┘┴ ┴ ┴ └─┘┴└─└─┘  ╚═╝└─┘┘└┘└─┘┴└─┴ ┴ ┴ ┴└─┘┘└┘
 
     """
-    
-    def smooth_ctr_old(self, df, cols_to_encode, subset="train", alpha=10):
-        """
-        Compute smoothed CTR features for each column in cols_to_encode.
-        In the 'train' subset, the CTR is computed by merging on the feature,
-        and the resulting mapping (a dict) is stored for later use.
-        In the 'test' subset, the stored mapping is used.
-        """
-        df = df.copy()
-        if subset == "train":
-            # Initialize mapping dictionaries
-            self.ctr_maps = {}
-            self.global_ctrs = {}
-            for col in cols_to_encode:
-                # Compute the number of views per value in col
-                
-                views = df.groupby(col)['session_id'].count()
-                # Global CTR on the provided training subset
-                global_ctr = df['is_click'].mean()
-                self.global_ctrs[col] = global_ctr
-
-                # Compute smoothed CTR using the formula: (alpha*global_ctr) / (views + alpha)
-                smoothed_ctr = ((alpha * global_ctr) / (views + alpha)).rename(f'{col}_ctrS')
-                
-                # Merge the smoothed CTR back into the dataframe using the feature value as key
-                df = df.merge(smoothed_ctr, how="left", left_on=col, right_index=True)
-                df[f'{col}_ctrS'].fillna(global_ctr, inplace=True)
-                
-                # Save the mapping dictionary for use in test data
-                self.ctr_maps[col] = smoothed_ctr.to_dict()
-            return df
-
-        elif subset == "test":
-            if not hasattr(self, 'ctr_maps'):
-                raise ValueError("CTR mappings not computed! Run on training data first.")
-            for col in cols_to_encode:
-                global_ctr = self.global_ctrs[col]
-                df[f'{col}_ctrS'] = df[col].map(self.ctr_maps[col]).fillna(global_ctr)
-            return df
-        
-
 
     def smooth_ctr(self, df, cols_to_encode, subset="train", alpha=10, cv=5, random_state=100):
         

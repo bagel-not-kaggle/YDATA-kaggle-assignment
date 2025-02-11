@@ -96,6 +96,10 @@ class ModelTrainer:
             y_train = pd.concat(y_train_all, axis=0)
             y_val = pd.concat(y_val_all, axis=0)
             cat_features = self.determine_categorical_features(X_train)
+            # Convert all values in categorical columns that consist of 34546.0 for example to string
+            for col in cat_features:
+                X_train[col] = X_train[col].astype(str)
+                X_val[col] = X_val[col].astype(str)
             with open("data/Hyperparams/best_params110.json", 'r') as f:
                 best_params = json.load(f)
             model = CatBoostClassifier(cat_features = cat_features, **best_params)
