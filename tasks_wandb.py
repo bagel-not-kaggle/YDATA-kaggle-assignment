@@ -22,9 +22,9 @@ def wandb_callback(metrics: dict):
     """
     Handles DataFrame/Series conversion and ensures W&B logs correctly.
     """
-    if "mean_f1" in metrics and "trial_number" in metrics:
+    if "mean_PRAUC" in metrics and "trial_number" in metrics:
         wandb.log({
-            "Hyperparameter Tuning/Mean F1": metrics["mean_f1"],
+            "Hyperparameter Tuning/Mean PRAUC": metrics["mean_PRAUC"],
             "trial": metrics["trial_number"]
         })
     processed_metrics = {}
@@ -117,9 +117,6 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
     feature_data.sort(key=lambda x: x[1], reverse=True) # 
     sorted_features, sorted_importance = zip(*feature_data)
     
-    # Log to wandb
-    #data = [[feature, float(importance)] for feature, importance in zip(sorted_features, sorted_importance)]
-    #table = wandb.Table(data=data, columns=["Feature", "Importance"])
     
     # Create holoviews bar plot
     bars = hv.Bars((sorted_features, sorted_importance), 'Features', 'Importance')
@@ -162,7 +159,7 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
 
 @task(name="train_model")
 def train_model(trainer_params, folds_dir, test_file, model_name, callback,
-                 run_id, best_features=None, select_features=False):
+                 run_id, features_path=None, select_features=False):
     """
     Load best hyperparams from JSON (assuming it was saved by the tuner), then train and evaluate the model.
     """
@@ -172,28 +169,28 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback,
         model_name=model_name,
         callback=callback,
         params=trainer_params,
-        best_features=best_features,
-        select_features=select_features
+        select_features=select_features,
+        features_path= features_path
     )
     results = trainer.train_and_evaluate()
     
-    # Log train and validation F1 scores per fold
-    for fold_index, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
+    # Log train and validation PRAUC scores per fold
+    for fold_index, (train_prauc, val_prauc) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"])):
         wandb.log({
-            f"Fold {fold_index + 1} Train F1": train_f1,
-            f"Fold {fold_index + 1} Validation F1": val_f1
+            f"Fold {fold_index + 1} Train PRAUC": train_prauc,
+            f"Fold {fold_index + 1} Validation PRAUC": val_prauc
         })
     
-    # Create a train/validation F1 plot
-    data = [[fold, train_f1, val_f1] for fold, (train_f1, val_f1) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"]), 1)]
-    table = wandb.Table(data=data, columns=["Fold", "Train F1", "Validation F1"])
+    # Create a train/validation PRAUC plot
+    data = [[fold, train_prauc, val_prauc] for fold, (train_prauc, val_prauc) in enumerate(zip(results["fold_scores_train"], results["fold_scores_val"]), 1)]
+    table = wandb.Table(data=data, columns=["Fold", "Train PRAUC", "Validation PRAUC"])
     
     wandb.log({
-        "train_val_f1_scores": wandb.plot.line_series(
+        "train_val_PRAUC_scores": wandb.plot.line_series(
             xs=table.get_column("Fold"),
-            ys=[table.get_column("Train F1"), table.get_column("Validation F1")],
-            keys=["Train F1", "Validation F1"],
-            title="Train and Validation F1 Scores per Fold",
+            ys=[table.get_column("Train PRAUC"), table.get_column("Validation PRAUC")],
+            keys=["Train PRAUC", "Validation PRAUC"],
+            title="Train and Validation PRAUC Scores per Fold",
             xname="Fold"
         )
     })
@@ -274,7 +271,6 @@ def preprocess_and_train_flow(
         model_name=model_name,
         callback=wandb_callback,
         params=best_params_path,
-        best_features=best_features
     )
 
 
@@ -284,9 +280,11 @@ def preprocess_and_train_flow(
         if best_params is None and params:  # Load from JSON if not tuning now
             with open(params, "r") as f:
                 best_params = json.load(f)
+        if select_features:
+            features_path = f'data/Hyperparams/best_features{run_id}.pkl'
 
         train_model(best_params_path, folds_dir, test_file, 
-                    model_name, wandb_callback, run_id, best_features, select_features)
+                    model_name, wandb_callback, run_id, features_path=features_path, select_features=select_features)
 
 
     wandb.finish()

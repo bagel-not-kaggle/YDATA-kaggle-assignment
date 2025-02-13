@@ -1,6 +1,7 @@
 import sys
 import os
 from pathlib import Path
+import plotly.express as px
 
 # Add the parent directory to system path before any other imports
 current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -40,7 +41,7 @@ class StreamlitApp:
 
     def load_model(self):
         """Load the CatBoost model"""
-        model_path = Path("models/catboost_model.cbm")
+        model_path = Path("models/best_model_catboost.cbm")
         try:
             if not model_path.exists():
                 raise FileNotFoundError(f"Model file not found at {model_path}")
@@ -117,15 +118,40 @@ class StreamlitApp:
         return df, cat_indices
 
     def preprocess_test_data(self, df):
-        """Preprocess test data using the preprocessor"""
+        """Preprocess test data using the preprocessor with enhanced logging"""
         try:
+            # Create a placeholder for logging
+            log_container = st.empty()
+
+            def logging_callback(message):
+                """Callback to display preprocessing logs in Streamlit"""
+                if st.session_state.debug_mode:
+                    with log_container.container():
+                        st.text(message)
+
             preprocessor = DataPreprocessor(
                 output_path=Path("data/processed"),
                 remove_outliers=False,
                 fillna=True,
-                save_as_pickle=False
+                save_as_pickle=False,
+                callback=logging_callback
             )
-            return preprocessor.preprocess_test(df_test=df)
+
+            processed_df = preprocessor.preprocess_test(df_test=df)
+
+            if st.session_state.debug_mode:
+                st.write("Preprocessing Statistics:")
+                stats = {
+                    "Original Shape": df.shape,
+                    "Processed Shape": processed_df.shape,
+                    "Missing Values": processed_df.isnull().sum().sum(),
+                    "Categorical Columns": len(processed_df.select_dtypes(include=['object', 'category']).columns),
+                    "Numeric Columns": len(processed_df.select_dtypes(include=['int64', 'float64']).columns)
+                }
+                st.json(stats)
+
+            return processed_df
+
         except Exception as e:
             st.error(f"Error in preprocessing: {str(e)}")
             raise
@@ -193,20 +219,33 @@ class StreamlitApp:
             st.bar_chart(hist_df)
 
     def generate_predictions(self, df):
-        """Generate predictions for the input data"""
+        """Generate predictions with enhanced logging and analysis"""
         try:
-            processed_df = self.preprocess_test_data(df)
+            with st.expander("Preprocessing Details", expanded=st.session_state.debug_mode):
+                processed_df = self.preprocess_test_data(df)
+
             cat_features = processed_df.select_dtypes(include=['object', 'category']).columns.tolist()
             processed_df, cat_indices = self.prepare_features(processed_df, cat_features)
 
-            self.debug_log("Creating prediction pool...")
+            if st.session_state.debug_mode:
+                st.write("Feature Preparation Summary:")
+                st.write({
+                    "Total Features": len(self.feature_names),
+                    "Categorical Features": len(cat_indices),
+                    "Numeric Features": len(self.feature_names) - len(cat_indices)
+                })
+
             test_pool = Pool(data=processed_df, cat_features=cat_indices)
 
-            probabilities = self.model.predict_proba(test_pool)[:, 1]
-            predictions = (probabilities >= st.session_state.threshold).astype(int)
+            with st.spinner("Generating predictions..."):
+                probabilities = self.model.predict_proba(test_pool)[:, 1]
+                predictions = (probabilities >= st.session_state.threshold).astype(int)
 
-            st.session_state.predictions = predictions
-            st.session_state.probabilities = probabilities
+                st.session_state.predictions = predictions
+                st.session_state.probabilities = probabilities
+
+                # Display feature importance analysis
+                self.display_feature_importance(processed_df)
 
         except Exception as e:
             st.error(f"Error generating predictions: {str(e)}")
@@ -218,6 +257,68 @@ class StreamlitApp:
                     st.write("Processed data columns:", processed_df.columns.tolist())
             raise
 
+    def display_feature_importance(self, processed_df):
+        """Display feature importance analysis"""
+        st.subheader("Feature Importance Analysis")
+
+        try:
+            # Get feature importance from the model
+            importance = self.model.get_feature_importance()
+            feature_names = processed_df.columns
+
+            # Create importance DataFrame
+            importance_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': importance
+            }).sort_values('importance', ascending=False)
+
+            # Display top features
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.write("Top 20 Most Important Features")
+                # Create bar chart
+                import plotly.express as px
+                fig = px.bar(
+                    importance_df.head(20),
+                    x='importance',
+                    y='feature',
+                    orientation='h',
+                    title='Feature Importance'
+                )
+                fig.update_layout(height=600)
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.write("Feature Importance Statistics")
+                # Categorize features
+                importance_df['feature_type'] = importance_df['feature'].apply(
+                    lambda x: 'CTR' if '_ctrS' in x
+                    else 'Target Encoded' if '_te' in x
+                    else 'Time-based' if any(t in x.lower() for t in ['day', 'hour', 'minute', 'weekday'])
+                    else 'Duration-based' if 'duration' in x.lower()
+                    else 'Other'
+                )
+
+                # Show importance by feature type
+                type_importance = importance_df.groupby('feature_type')['importance'].sum().sort_values(ascending=False)
+                st.write("Importance by Feature Type:")
+                st.dataframe(type_importance)
+
+                # Show basic statistics
+                st.write("Summary Statistics:")
+                stats = pd.DataFrame({
+                    'Metric': ['Number of features', 'Mean importance', 'Median importance'],
+                    'Value': [
+                        len(importance_df),
+                        f"{importance_df['importance'].mean():.4f}",
+                        f"{importance_df['importance'].median():.4f}"
+                    ]
+                })
+                st.dataframe(stats)
+
+        except Exception as e:
+            st.error(f"Error analyzing feature importance: {str(e)}")
     def home_page(self):
         """Main page with prediction functionality"""
         st.title("🎯 Click Prediction Model")
