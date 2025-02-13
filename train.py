@@ -108,7 +108,7 @@ class ModelTrainer:
                 X=X_train,
                 y=y_train,
                 eval_set=(X_val, y_val),
-                num_features_to_select=20,
+                num_features_to_select=30,
                 train_final_model= False,
                 features_for_select=list(range(X_train.shape[1])),
                 algorithm="RecursiveByPredictionValuesChange",
@@ -120,10 +120,9 @@ class ModelTrainer:
 
         def objective(trial):
             # Define hyperparameters to optimize
-            params = {
-                
-                "depth": trial.suggest_int("depth", 4, 12),
-                "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.15),
+            params = {   
+                "depth": trial.suggest_int("depth", 4, 10),
+                "learning_rate": trial.suggest_float("learning_rate", 0.065, 0.15),
                 "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 16, 25),
                 "random_strength": trial.suggest_float("random_strength", 1.5, 4.8),
                 "rsm": trial.suggest_float("rsm", 0.6, 1.0),
@@ -312,7 +311,6 @@ class ModelTrainer:
         self.logger.info(f"Loading fold data from: {self.folds_dir}")
         n_folds = len(list(self.folds_dir.glob("X_train_fold_*.pkl")))
         self.logger.info(f"Detected {n_folds} folds.")
-        a = 0.06767396213210575
         best_PRAUC = 0
         best_model = None
         fold_scores_val = []
@@ -456,13 +454,20 @@ class ModelTrainer:
 
         self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
+        X_train = pd.read_pickle(self.folds_dir / "X_train.pkl")
+        y_train = pd.read_pickle(self.folds_dir / "y_train.pkl").squeeze()
+        model_fin = CatBoostClassifier(cat_features = cat_features, **params)
+        # Merge al validation folds for creating X_val
+        X_val = pd.concat([pd.read_pickle(self.folds_dir / f"X_val_fold_{fold_index}.pkl") for fold_index in range(n_folds)], axis=0)
+        y_val = pd.concat([pd.read_pickle(self.folds_dir / f"y_val_fold_{fold_index}.pkl") for fold_index in range(n_folds)], axis=0)
+        model_fin.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)
         if self.best_features is not None:
             X_test = X_test[self.best_features]
         y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
-        #GEt the features of the best model to set the test data
+        
         if self.select_features:
             X_test = X_test[self.chosen_features]
-        y_test_pred = best_model.predict(X_test)
+        y_test_pred = model_fin.predict(X_test)
         precision, recall, _ = precision_recall_curve(y_test, y_test_pred)
         test_prauc = auc(recall, precision)
 
