@@ -474,7 +474,7 @@ class DataPreprocessor:
         else:
             raise ValueError("subset must be either 'train' or 'test'")
 
-
+    
     
 
     def add_target_encoding(self, df, cols_to_target_encode, subset="train"):
@@ -504,7 +504,26 @@ class DataPreprocessor:
         return df
 
 
+
+
+    def cumulative_unique_count(self, values):
+        """
+        For a 1D array/Series of values, return an array of
+        'number of unique values so far (before this row)'.
+        """
+        seen = set()
+        result = []
+        for val in values:
+            result.append(len(seen))
+            seen.add(val)
+        return result
+
+    
+
+
+
     def feature_generation(self, df: pd.DataFrame, subset="train") -> pd.DataFrame:
+
         df = df.copy()
 
         
@@ -524,17 +543,57 @@ class DataPreprocessor:
             df = self.add_target_encoding(df, cols_to_target_encode, subset="test")
 
         # Generate time-based features
-        df['Day'] = df['DateTime'].dt.day
         df['Hour'] = df['DateTime'].dt.hour
-        df['Minute'] = df['DateTime'].dt.minute
-        df['weekday'] = df['DateTime'].dt.weekday
+        df['Minute'] = df['DateTime'].dt.minute # Maybe drop
+        df['weekday'] = df['DateTime'].dt.weekday 
+        def part_of_day(hour):
+            if 6 <= hour < 12:
+                return 'morning'
+            elif 12 <= hour < 17:
+                return 'afternoon'
+            elif 17 <= hour < 22:
+                return 'evening'
+            else:
+                return 'night'
+        df['part_of_day'] = df['Hour'].apply(part_of_day)
+        df['user_total_num_of_sessions']= df.groupby("user_id")["session_id"].transform('nunique')
 
+        # user_session_order (starting from 1)
+        df['user_session_order'] = df.sort_values(by="DateTime").groupby('user_id')['DateTime'].rank(method='first')
+
+        # is_first_session (binary)
+        first_session_map = df.groupby("user_id")["DateTime"].min().to_dict()
+        df["is_first_session"] = (df.DateTime == df.user_id.map(first_session_map)).astype("int")
+        df['user_num_of_days_in_webpage'] = df.groupby(["user_id", "webpage_id"])["weekday"].transform('nunique')
+
+        # campaign_num_of_products
+        df['campaign_num_of_products'] = df.groupby("campaign_id")["product"].transform('nunique')
+
+        # campaign_num_of_product_categories
+        df['campaign_num_of_product_categories'] = df.groupby("campaign_id")["product_category"].transform('nunique')
+
+        # user's hours_since_last_session
+        df['hours_since_last_session'] = (df.sort_values(by="DateTime").groupby("user_id")["DateTime"].diff()).dt.total_seconds()/3600
+        # Replace NaN with 0
+        df['hours_since_last_session'] = df['hours_since_last_session'].fillna(0)
+        cols = ['webpage_id', 'product_category', 'campaign_id', 'product']
+        #for col in cols:
+            #df['user_distinct_' + col] = df.sort_values("DateTime").groupby('user_id', group_keys=False)[col].apply(self.cumulative_unique_count)
         # Fill missing values for time-based features
-        cols_to_fill = ["Day", "Hour", "Minute", "weekday"]
+        cols_to_fill = ["Hour", "Minute", "weekday", "part_of_day"]
         df[cols_to_fill] = self.mode_target(df, cols_to_fill, "user_id")
 
         if df[cols_to_fill].isna().sum().sum() > 0:
             df[cols_to_fill] = df[cols_to_fill].fillna(df[cols_to_fill].mode().iloc[0])
+        
+        new_colls = ['user_total_num_of_sessions', 'user_session_order', 'is_first_session', 
+                     'user_num_of_days_in_webpage', 'campaign_num_of_products', 'campaign_num_of_product_categories',
+                       'hours_since_last_session']
+        
+        if df[new_colls].isna().sum().sum() > 0:
+            self.logger.warning(f"Still missing values in columns: {new_colls}, sum: {df[new_colls].isna().sum().sum()}")
+            #df[new_colls] = df[new_colls].fillna(df[new_colls].mode().iloc[0])
+            df[new_colls] = df[new_colls].fillna(df[new_colls].apply(lambda x: x.mode().iloc[0] if not x.mode().empty else 0))
 
         # Generate campaign-based features
         df['start_date'] = df.groupby('campaign_id', observed=True)['DateTime'].transform('min')
@@ -577,8 +636,8 @@ class DataPreprocessor:
         # Initial cleaning steps that do not involve target-dependent feature generation
         df_train = self.drop_completely_empty(df_train).copy()
         df_train = self.drop_session_id_or_is_click(df_train)
-        df_test = self.decrease_test_user_group_id(df_test)
-        df_test = self.replace_test_user_depth_to_training(df_train, df_test)
+        df_test = self.decrease_test_user_group_id(df_test) # Maybe remove it
+        df_test = self.replace_test_user_depth_to_training(df_train, df_test) # Maybe remove it
         
         self.logger.info(f"Total missing values in train dataset: {df_train.isna().sum().sum()}")
         self.logger.info(f"Total missing values in test dataset: {df_test.isna().sum().sum()}")
@@ -589,9 +648,10 @@ class DataPreprocessor:
         df_train["DateTime"] = pd.to_datetime(df_train["DateTime"], errors="coerce")
         df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
         
-        if self.remove_outliers:
+        if self.remove_outliers: # Maybe we need it
             df_train = self.remove_outliers(df_train)
             df_test = self.remove_outliers(df_test)
+
         if self.fillna:
             df_train = self.fill_missing_values(df_train)
             df_test = self.fill_missing_values(df_test)
