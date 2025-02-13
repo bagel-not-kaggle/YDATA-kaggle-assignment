@@ -111,10 +111,10 @@ class ModelTrainer:
                 X=X_train,
                 y=y_train,
                 eval_set=(X_val, y_val),
-                num_features_to_select=30,
+                num_features_to_select=24,
                 train_final_model= False,
                 features_for_select=list(range(X_train.shape[1])),
-                algorithm="RecursiveByPredictionValuesChange",
+                algorithm="RecursiveByShapValues",
                 logging_level="Verbose",
                 plot=False
             )
@@ -423,7 +423,7 @@ class ModelTrainer:
 
         if self.model_name == "catboost":
             predictions_val = pd.DataFrame(y_class, columns=['is_click'])
-            predict_proba_val = pd.DataFrame(y_test_pred, columns=['is_click_proba'])
+            predict_proba_val = pd.DataFrame(y_test_pred, columns=['is_click_proba_0', 'is_click_proba_1'])
             predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
             predict_proba_val.to_csv(f'data/predictions/predictions_proba_val{self.model_name}.csv', index=False)
 
