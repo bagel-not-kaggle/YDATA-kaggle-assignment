@@ -1,0 +1,17 @@
+{
+    "depth": 8,
+    "learning_rate": 0.0694398568706175,
+    "l2_leaf_reg": 20.622114865876746,
+    "random_strength": 1.6943271012493129,
+    "rsm": 0.8468919782853421,
+    "leaf_estimation_iterations": 11,
+    "bootstrap_type": "Bayesian",
+    "bagging_temperature": 1.3177229000875847,
+    "grow_policy": "SymmetricTree",
+    "iterations": 1000,
+    "auto_class_weights": "Balanced",
+    "early_stopping_rounds": 100,
+    "random_seed": 42,
+    "eval_metric": "PRAUC:type=Classic",
+    "verbose": 0
+}

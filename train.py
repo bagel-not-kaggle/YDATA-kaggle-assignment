@@ -131,6 +131,8 @@ class ModelTrainer:
         else:
             X_train_optimized = X_train
             X_val_optimized = X_val
+        
+        cat_features = self.determine_categorical_features(X_train_optimized)
 
         def objective(trial):
             # Define hyperparameters to optimize
@@ -354,8 +356,8 @@ class ModelTrainer:
 
             
 
-            y_val_pred = model.predict_proba(X_val_cv)
-            y_train_pred = model.predict_proba(X_train_cv)
+            y_val_pred = model.predict_proba(X_val_cv)[:, 1]
+            y_train_pred = model.predict_proba(X_train_cv)[:, 1]
             precision, recall, _ = precision_recall_curve(y_val_cv, y_val_pred)
             fold_prauc = auc(recall, precision)
             precision, recall, _ = precision_recall_curve(y_train_cv, y_train_pred)
@@ -406,7 +408,7 @@ class ModelTrainer:
             X_test = X_test[self.optimized_features]
         
         self.logger.warning(f"X_train shape: {X_train.shape}")
-        
+
         cat_features = self.determine_categorical_features(X_train)
 
         model_fin = CatBoostClassifier(cat_features = cat_features, **params)

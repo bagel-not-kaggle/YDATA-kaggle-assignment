@@ -576,7 +576,7 @@ class DataPreprocessor:
         df['hours_since_last_session'] = (df.sort_values(by="DateTime").groupby("user_id")["DateTime"].diff()).dt.total_seconds()/3600
         # Replace NaN with 0
         df['hours_since_last_session'] = df['hours_since_last_session'].fillna(0)
-        cols = ['webpage_id', 'product_category', 'campaign_id', 'product']
+        #cols = ['webpage_id', 'product_category', 'campaign_id', 'product']
         #for col in cols:
             #df['user_distinct_' + col] = df.sort_values("DateTime").groupby('user_id', group_keys=False)[col].apply(self.cumulative_unique_count)
         # Fill missing values for time-based features
