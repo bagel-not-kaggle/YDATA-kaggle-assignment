@@ -22,14 +22,15 @@ from sklearn.ensemble import StackingClassifier
 
 class ModelTrainer:
     def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",
-                 callback=None, params=None, best_features=None, select_features=False):
+                 callback=None, params=None, select_features=False,
+                 features_path=None):
         self.folds_dir = Path(folds_dir)
         self.test_file = Path(test_file)
         self.model_name = model_name
         self.callback = callback
         self.params = params
-        self.best_features = best_features
         self.select_features = select_features
+        self.features_path = features_path
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -74,33 +75,35 @@ class ModelTrainer:
         trials_data = []
 
         
+
+        # Load and merge all fold datasets
+        X_train_all = []
+        X_val_all = []
+        y_train_all = []
+        y_val_all = []
+        
+        n_folds = len(list(self.folds_dir.glob("X_train_fold_*.pkl")))
+        for fold_index in range(n_folds):
+            X_train_fold, y_train_fold, X_val_fold, y_val_fold = self.load_fold_data(fold_index)
+            X_train_all.append(X_train_fold)
+            X_val_all.append(X_val_fold)
+            y_train_all.append(y_train_fold)
+            y_val_all.append(y_val_fold)
+        
+        # Concatenate all folds
+        X_train = pd.concat(X_train_all, axis=0)
+        X_val = pd.concat(X_val_all, axis=0)
+        y_train = pd.concat(y_train_all, axis=0)
+        y_val = pd.concat(y_val_all, axis=0)
+        cat_features = self.determine_categorical_features(X_train)
+        # Convert all values in categorical columns that consist of 34546.0 for example to string
+        for col in cat_features:
+            X_train[col] = X_train[col].astype(str)
+            X_val[col] = X_val[col].astype(str)
+
         if self.select_features:
 
-            # Load and merge all fold datasets
-            X_train_all = []
-            X_val_all = []
-            y_train_all = []
-            y_val_all = []
-            
-            n_folds = len(list(self.folds_dir.glob("X_train_fold_*.pkl")))
-            for fold_index in range(n_folds):
-                X_train_fold, y_train_fold, X_val_fold, y_val_fold = self.load_fold_data(fold_index)
-                X_train_all.append(X_train_fold)
-                X_val_all.append(X_val_fold)
-                y_train_all.append(y_train_fold)
-                y_val_all.append(y_val_fold)
-            
-            # Concatenate all folds
-            X_train = pd.concat(X_train_all, axis=0)
-            X_val = pd.concat(X_val_all, axis=0)
-            y_train = pd.concat(y_train_all, axis=0)
-            y_val = pd.concat(y_val_all, axis=0)
-            cat_features = self.determine_categorical_features(X_train)
-            # Convert all values in categorical columns that consist of 34546.0 for example to string
-            for col in cat_features:
-                X_train[col] = X_train[col].astype(str)
-                X_val[col] = X_val[col].astype(str)
-            with open("data/Hyperparams/best_params110.json", 'r') as f:
+            with open("data/Hyperparams/best_params115.json", 'r') as f:
                 best_params = json.load(f)
             model = CatBoostClassifier(cat_features = cat_features, **best_params)
             self.logger.info("Starting feature selection")
@@ -117,6 +120,17 @@ class ModelTrainer:
             )
             self.optimized_features = selected_features['selected_features_names']
             self.logger.warning(f"Selected features: {self.optimized_features}")
+        
+        if self.select_features:
+            #save best features as pickle
+            with open(f'data/Hyperparams/best_features{run_id}.pkl', 'wb') as f:
+                pickle.dump(self.optimized_features, f)
+
+            X_train_optimized = X_train[self.optimized_features]
+            X_val_optimized = X_val[self.optimized_features]
+        else:
+            X_train_optimized = X_train
+            X_val_optimized = X_val
 
         def objective(trial):
             # Define hyperparameters to optimize
@@ -153,69 +167,31 @@ class ModelTrainer:
                 self.callback({"trial_params": params})
 
             ## Initialize the model
-            model = CatBoostClassifier(**params)
-
-            scores = []
-
-            for fold_index in range(5):
-                self.logger.info(f"Processing fold {fold_index + 1}...")
-
-                X_train_cv, y_train_cv, X_val_cv, y_val_cv = self.load_fold_data(fold_index)
-                #self.best_features = cat``
-                if self.best_features is not None:
-                    X_train_cv = X_train_cv[self.best_features]
-                    X_val_cv = X_val_cv[self.best_features]
-
-                if len(np.unique(y_train_cv)) < 2 or len(np.unique(y_val_cv)) < 2:
-                    self.logger.warning(f"Fold {fold_index}: Skipping due to only one class in y_train_cv or y_val_cv")
-                    continue
-                cat_features = self.determine_categorical_features(X_train_cv)
-                
-                if self.select_features:
-                    X_train_cv = X_train_cv[self.optimized_features]
-                    X_val_cv = X_val_cv[self.optimized_features]
-                    cat_features = self.determine_categorical_features(X_train_cv)
+            model = CatBoostClassifier(**params,cat_features = cat_features)
+            model.fit(X_train_optimized, y_train, 
+                      eval_set=(X_val_optimized, y_val),
+                       early_stopping_rounds=50,
+                      use_best_model=True)
+            y_pred = model.predict_proba(X_val_optimized)[:, 1]
+            precision, recall, _ = precision_recall_curve(y_val, y_pred)
+            score = auc(recall, precision)
             
-                model.fit(
-                    X_train_cv,
-                    y_train_cv,
-                    cat_features=cat_features,
-                    eval_set=(X_val_cv, y_val_cv),
-                    early_stopping_rounds=50,
-                    use_best_model=True
-                )
-
-                # Predict on the validation set
-                y_pred_val = model.predict(X_val_cv)
-
-                # Calculate PRAUC score
-                try:
-                    # Score using prauc
-                    precision, recall, _ = precision_recall_curve(y_val_cv, y_pred_val)
-                    score = auc(recall, precision)
-
-                    scores.append(score)
-                    self.logger.info(f"Fold {fold_index}: PRAUC score = {score}")
-                except Exception as e:
-                    self.logger.error(f"Error calculating PRAUC score on fold {fold_index}: {e}")
-                    continue
 
             # Return the average PRAUC score across folds
-            mean_score = float(np.mean(scores) if scores else 0.0)
             trial_data = {
                 "trial_number": len(trials_data) + 1,
-                "PRAUC_score": mean_score,
+                "PRAUC_score": score,
                  }
             trials_data.append(trial_data)
 
             if self.callback:
                 self.callback({
-                    "mean_PRAUC": mean_score,
+                    "mean_PRAUC": score,
                     "trial_number": trial_data["trial_number"],
                     "trial_params": params  # Key change: separate hyperparameters
                 })
 
-            return mean_score
+            return score
 
 
 
@@ -253,25 +229,6 @@ class ModelTrainer:
 
     """
     
-    """
-    def feature_selection_rfecv(self, X_train, y_train, n_trials: int = 50, run_id: str = "1"):
-        categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
-
-        best_params = self.hyperparameter_tuning #With other model not cat boost
-        columns_to_d = ["product", "campaign_id", "webpage_id", "product_category", "gender","user_group_id"]
-        X_train = pd.get_dummies(X_train, columns=columns_to_d) #Rfecv does not work with categorical features
-        mod_best = <entermodel>.fit(X_train, y_train)
-
-        # Apply RFE with the best CatBoost model
-        rfecv = RFECV(estimator=mod_best, step=1, #number of features to remove at each iteration 
-                      cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=44), scoring='f1',n_jobs=-1)
-        rfecv.fit(X_train, y_train)
-
-        # Selected features
-        selected_features = X_train.columns[rfecv.support_]
-        print("Selected Features:", selected_features)
-        return selected_features
-    """
     
     def feature_selection(self, X_train, y_train, n_trials: int = 10, run_id: str = "1", tune=False):
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -331,39 +288,23 @@ class ModelTrainer:
             self.logger.info(f"Processing fold {fold_index + 1}...")
 
             X_train_cv, y_train_cv, X_val_cv, y_val_cv = self.load_fold_data(fold_index)
-            #self.best_features = cat``
-            if self.best_features is not None:
-                X_train_cv = X_train_cv[self.best_features]
-                X_val_cv = X_val_cv[self.best_features]
 
-            cat_features = self.determine_categorical_features(X_train_cv)
-            if self.select_features:
-                self.logger.warning(f"Starting feature selection")
-                
-                model = CatBoostClassifier(cat_features = cat_features, **params)
-                selected_features = model.select_features(
-                    X=X_train_cv,
-                    y=y_train_cv,
-                    eval_set=(X_val_cv, y_val_cv),
-                    num_features_to_select=20,
-                    train_final_model= False,
-                    features_for_select=list(range(X_train_cv.shape[1])),
-                    algorithm="RecursiveByPredictionValuesChange",
-                    logging_level="Verbose",
-                    plot=False
-                )
-                X_train_cv = X_train_cv[selected_features['selected_features_names']]
-                X_val_cv = X_val_cv[selected_features['selected_features_names']]
+            if self.features_path is not None:
+
+                with open(self.features_path, 'rb') as f:
+                    self.optimized_features = pickle.load(f)
+                X_train_cv = X_train_cv[self.optimized_features]
+                X_val_cv = X_val_cv[self.optimized_features]
 
                 cat_features = self.determine_categorical_features(X_train_cv)
-                self.logger.warning(f"Selected features: {selected_features['selected_features_names']}")
+                self.logger.warning(f"Selected features: {self.optimized_features}")
+
+            self.logger.warning(f"X_train_cv shape: {X_train_cv.shape}")
 
             if self.model_name == "catboost":
                 model = CatBoostClassifier(
                 cat_features=cat_features,
                 **params)
-
-            ## Stacking model
 
             elif self.model_name == "stacking":
                 X_train_cv = self.fill_missing_with_mode(X_train_cv)
@@ -413,8 +354,8 @@ class ModelTrainer:
 
             
 
-            y_val_pred = model.predict(X_val_cv)
-            y_train_pred = model.predict(X_train_cv)
+            y_val_pred = model.predict_proba(X_val_cv)
+            y_train_pred = model.predict_proba(X_train_cv)
             precision, recall, _ = precision_recall_curve(y_val_cv, y_val_pred)
             fold_prauc = auc(recall, precision)
             precision, recall, _ = precision_recall_curve(y_train_cv, y_train_pred)
@@ -433,8 +374,7 @@ class ModelTrainer:
             if fold_prauc > best_PRAUC:
                 best_PRAUC = fold_prauc
                 best_model = model
-                if self.select_features:
-                    self.chosen_features = X_train_cv.columns
+                
         
         avg_prauc_train = sum(fold_scores_train) / len(fold_scores_train)
         self.logger.info(f"Average PRAUC train score across folds: {avg_prauc_train}")
@@ -452,36 +392,43 @@ class ModelTrainer:
         
         
 
-        self.logger.info("Predicting on test set using the best modeland on the REAL TEST (warning: do not touch)")
+        self.logger.info("Predicting on test set using the final model on the REAL TEST (warning: do not touch)")
         X_test = pd.read_pickle(self.folds_dir / "X_test.pkl")
         X_train = pd.read_pickle(self.folds_dir / "X_train.pkl")
         y_train = pd.read_pickle(self.folds_dir / "y_train.pkl").squeeze()
-        model_fin = CatBoostClassifier(cat_features = cat_features, **params)
+        y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
         # Merge al validation folds for creating X_val
         X_val = pd.concat([pd.read_pickle(self.folds_dir / f"X_val_fold_{fold_index}.pkl") for fold_index in range(n_folds)], axis=0)
         y_val = pd.concat([pd.read_pickle(self.folds_dir / f"y_val_fold_{fold_index}.pkl") for fold_index in range(n_folds)], axis=0)
-        model_fin.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)
-        if self.best_features is not None:
-            X_test = X_test[self.best_features]
-        y_test = pd.read_pickle(self.folds_dir / "y_test.pkl").squeeze()
-        
         if self.select_features:
-            X_test = X_test[self.chosen_features]
-        y_test_pred = model_fin.predict(X_test)
-        precision, recall, _ = precision_recall_curve(y_test, y_test_pred)
+            X_train = X_train[self.optimized_features]
+            X_val = X_val[self.optimized_features]
+            X_test = X_test[self.optimized_features]
+        
+        self.logger.warning(f"X_train shape: {X_train.shape}")
+        
+        cat_features = self.determine_categorical_features(X_train)
+
+        model_fin = CatBoostClassifier(cat_features = cat_features, **params)
+        model_fin.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)         
+        y_class = model_fin.predict(X_test)
+        y_test_pred = model_fin.predict_proba(X_test)
+        precision, recall, _ = precision_recall_curve(y_test, y_test_pred[:, 1])
         test_prauc = auc(recall, precision)
 
         if best_model is None:
             best_model = model  # Fallback if no fold improved the PRAUC
 
         if self.model_name == "catboost":
-            predictions_val = pd.DataFrame(y_test_pred, columns=['is_click'])
+            predictions_val = pd.DataFrame(y_class, columns=['is_click'])
+            predict_proba_val = pd.DataFrame(y_test_pred, columns=['is_click_proba'])
             predictions_val.to_csv(f'data/predictions/predictions_val{self.model_name}.csv', index=False)
+            predict_proba_val.to_csv(f'data/predictions/predictions_proba_val{self.model_name}.csv', index=False)
 
             # Ensure models directory exists before saving
             Path("models").mkdir(parents=True, exist_ok=True)
 
-            best_model.save_model(f'models/best_model_{self.model_name}.cbm')
+            model_fin.save_model(f'models/best_model_{self.model_name}.cbm')
             self.logger.info(f"Model saved at models/best_model_{self.model_name}.cbm")
 
 
@@ -508,22 +455,17 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", type=int, default=50, help="Number of Optuna trials for hyperparameter tuning (default: 50)")
     parser.add_argument("--train", action="store_true", help="Flag to train the model")
     parser.add_argument("--params", type=str, default=None, help="Hyperparameters for the model")
-    parser.add_argument("--best_features", type=str, default=None, help="Best features for the model")
-    parser.add_argument("--feature_selection", action="store_true", help="Flag to perform feature selection")
+    parser.add_argument("--feature_importance", action="store_true", help="Flag to perform feature selection")
+    parser.add_argument("--features_path", type=str, default=None, help="Path to the selected features")
     parser.add_argument("--select_features", action="store_true", help="Flag to perform feature selection")
 
     args = parser.parse_args()
 
-    
 
-    if args.best_features:
-        args.best_features = args.best_features.split(',')
-    else:
-        args.best_features = None
     
     trainer = ModelTrainer(folds_dir=args.folds_dir, test_file=args.test_file, 
-                           model_name=args.model_name, params=args.params, best_features=args.best_features,
-                            select_features=args.select_features)
+                           model_name=args.model_name, params=args.params, 
+                            select_features=args.select_features, features_path=args.features_path)
 
     if args.tune:
         X_train, y_train = pd.read_pickle(trainer.folds_dir / "X_train.pkl"), pd.read_pickle(trainer.folds_dir / "y_train.pkl").squeeze()
@@ -531,7 +473,7 @@ if __name__ == "__main__":
         trainer.hyperparameter_tuning(X_train, y_train, cat_features, n_trials=args.n_trials, run_id=args.run_id)
 
 
-    if args.feature_selection:
+    if args.feature_importance:
         trainer = ModelTrainer(
             folds_dir=args.folds_dir,
             test_file=args.test_file,
