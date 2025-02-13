@@ -41,7 +41,7 @@ class StreamlitApp:
 
     def load_model(self):
         """Load the CatBoost model"""
-        model_path = Path("models/catboost_model.cbm")
+        model_path = Path("models/best_model_catboost.cbm")
         try:
             if not model_path.exists():
                 raise FileNotFoundError(f"Model file not found at {model_path}")
