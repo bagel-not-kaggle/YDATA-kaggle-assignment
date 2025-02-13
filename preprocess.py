@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 from pathlib import Path
 import logging
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 import numpy as np
 from sklearn.preprocessing import TargetEncoder
 
@@ -155,7 +155,6 @@ class DataPreprocessor:
         
         Parameters:
             df (pd.DataFrame): The DataFrame containing the data.
-            group_cols (list of str): The columns to group by for mapping.
             target_col (str): The column to fill missing values in.
             mapping_df (pd.DataFrame, optional): A pre-filtered DataFrame to build the mapping from.
                                                 If None, uses the entire DataFrame.
@@ -655,74 +654,185 @@ class DataPreprocessor:
         
         return df_train_processed, X_train, X_test, y_train, y_test, fold_datasets, df_test_processed
 
-    def preprocess_test(self, df_test: pd.DataFrame) -> pd.DataFrame:
+    def preprocess_test(self, df_test: pd.DataFrame, trained_preprocessor=None) -> pd.DataFrame:
+        """
+        Preprocess test data with detailed logging of transformations.
+        """
         try:
-            # Load training data for reference - this will give us the correct column order
-            train_data = pd.read_csv("data/raw/train_dataset_full.csv")
-            train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
-            train_data = self.drop_completely_empty(train_data)
-            train_data.dropna(subset=["is_click"], inplace=True)
-            train_data["product_category"] = train_data["product_category_1"].fillna(train_data["product_category_2"])
-            train_data.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-            cols_to_encode = [c for c in train_data.columns if c not in ["session_id", "DateTime", "is_click"]]
-            self.te = TargetEncoder()
-            self.te.fit(train_data[cols_to_encode], train_data["is_click"].astype(int))
-            self.global_ctrs = {}
-            self.ctr_maps = {}
+            def log_dataset_stats(df, stage):
+                """Helper function to log dataset statistics at each stage"""
+                self.logger.info(f"\n{'=' * 50}\nStage: {stage}\n{'=' * 50}")
+                self.logger.info(f"Dataset shape: {df.shape}")
+                self.logger.info("\nMissing values:")
+                self.logger.info(df.isnull().sum()[df.isnull().sum() > 0])
 
-            for col in cols_to_encode:
-                if col in train_data.columns:
-                    self.global_ctrs[col] = train_data['is_click'].mean()
-                    clicks = train_data.groupby(col)['is_click'].sum()
-                    views = train_data.groupby(col)['session_id'].count()
-                    alpha = 10
-                    mapping = ((clicks + alpha * self.global_ctrs[col]) / (views + alpha))
-                    self.ctr_maps[col] = mapping.to_dict()
+                # Log numeric column distributions
+                numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
+                if len(numeric_cols) > 0:
+                    self.logger.info("\nNumeric column statistics:")
+                    self.logger.info(df[numeric_cols].describe())
 
-            # Process training data minimally to get feature order
-            train_features = train_data.drop(columns=["session_id", "DateTime", "is_click"], errors='ignore')
-            train_column_order = train_features.columns.tolist()
+                # Log categorical column distributions
+                cat_cols = df.select_dtypes(include=['object', 'category']).columns
+                if len(cat_cols) > 0:
+                    self.logger.info("\nCategorical column value counts:")
+                    for col in cat_cols:
+                        self.logger.info(f"\n{col}:\n{df[col].value_counts().head()}")
 
-            # Initialize preprocessing
+            # Initial logging
+            log_dataset_stats(df_test, "Initial State")
+
+            if trained_preprocessor is None:
+                # Load training data logging
+                self.logger.info("\nLoading training data for reference...")
+                train_data = pd.read_csv("data/raw/train_dataset_full.csv")
+                train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
+                train_data = self.drop_completely_empty(train_data)
+                train_data.dropna(subset=["is_click"], inplace=True)
+                log_dataset_stats(train_data, "Training Data Reference")
+
+                # Prepare encoders and mappings
+                if "product_category_1" in train_data.columns and "product_category_2" in train_data.columns:
+                    train_data["product_category"] = train_data["product_category_1"].fillna(
+                        train_data["product_category_2"])
+                    train_data.drop(columns=["product_category_1", "product_category_2"], inplace=True)
+                    self.logger.info("Combined product categories")
+
+                cols_to_encode = [c for c in train_data.columns if c not in ["session_id", "DateTime", "is_click"]]
+                self.logger.info(f"\nColumns to encode: {cols_to_encode}")
+
+                # Fit encoders logging
+                self.te = TargetEncoder()
+                self.te.fit(train_data[cols_to_encode], train_data["is_click"].astype(int))
+                self.logger.info("Fitted TargetEncoder")
+
+                # Prepare CTR mappings with logging
+                self.global_ctrs = {}
+                self.ctr_maps = {}
+                for col in cols_to_encode:
+                    if col in train_data.columns:
+                        self.global_ctrs[col] = train_data['is_click'].mean()
+                        self.logger.info(f"Global CTR for {col}: {self.global_ctrs[col]:.4f}")
+            else:
+                self.logger.info("Using pre-fitted preprocessor")
+                self.te = trained_preprocessor.te
+                self.global_ctrs = trained_preprocessor.global_ctrs
+                self.ctr_maps = trained_preprocessor.ctr_maps
+
+            # Track each transformation
             df_test = self.drop_completely_empty(df_test).copy()
+            log_dataset_stats(df_test, "After dropping empty rows")
+
             df_test = self.drop_session_id(df_test)
+            log_dataset_stats(df_test, "After dropping sessions")
+
             if "product_category_1" in df_test.columns and "product_category_2" in df_test.columns:
                 df_test["product_category"] = df_test["product_category_1"].fillna(df_test["product_category_2"])
                 df_test.drop(columns=["product_category_1", "product_category_2"], inplace=True)
-            df_test = self.drop_session_id(df_test)  # Using the new function
+                log_dataset_stats(df_test, "After product category processing")
 
-            # Handle user_group_id
             df_test = self.decrease_test_user_group_id(df_test)
-            df_test = self.replace_test_user_depth_to_training(train_data, df_test)
+            log_dataset_stats(df_test, "After user group adjustment")
 
-            # Add is_click column for feature generation (needed for preprocessing)
             df_test["is_click"] = -1
             df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
+
+            df_test = self.deterministic_fill(df_test)
+            log_dataset_stats(df_test, "After deterministic fill")
+
             if self.fillna:
                 df_test = self.fill_missing_values(df_test)
-            df_test = self.deterministic_fill(df_test)
+                log_dataset_stats(df_test, "After filling missing values")
+
             if self.remove_outliers:
                 df_test = self.remove_outliers(df_test)
+                log_dataset_stats(df_test, "After removing outliers")
+
             df_test = self.feature_generation(df_test, subset="test")
+            log_dataset_stats(df_test, "After feature generation")
 
-            # Ensure column order matches training data
-            # First identify any new columns from feature generation
-            generated_columns = [col for col in df_test.columns if col not in train_column_order and col != 'is_click']
+            if self.catb:
+                self.determine_categorical_features(df_test)
+                log_dataset_stats(df_test, "After categorical feature processing")
 
-            # Create final column order: original columns followed by generated columns
-            final_column_order = [col for col in train_column_order if col in df_test.columns] + generated_columns
-
-            # Reorder columns
-            df_test = df_test[final_column_order]
-
-            # Handle categorical features
-            self.determine_categorical_features(df_test)
             return df_test
 
         except Exception as e:
             self.logger.error(f"Error in preprocess_test: {str(e)}")
             raise
-    
+
+    def analyze_feature_importance(self, model, X_test, feature_names=None):
+        """
+        Analyze and visualize feature importance from the model.
+
+        Args:
+            model: Trained model (CatBoost, XGBoost, etc.)
+            X_test: Test features
+            feature_names: Optional list of feature names
+        """
+        try:
+            if not hasattr(model, 'feature_importances_') and not hasattr(model, 'get_feature_importance'):
+                self.logger.warning("Model doesn't support feature importance analysis")
+                return None
+
+            # Get feature importance
+            if hasattr(model, 'get_feature_importance'):  # CatBoost
+                importance = model.get_feature_importance()
+            else:  # Other models
+                importance = model.feature_importances_
+
+            # Get feature names
+            if feature_names is None:
+                if hasattr(X_test, 'columns'):
+                    feature_names = X_test.columns
+                else:
+                    feature_names = [f'feature_{i}' for i in range(len(importance))]
+
+            # Create importance DataFrame
+            importance_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': importance
+            })
+            importance_df = importance_df.sort_values('importance', ascending=False)
+
+            # Log top features
+            self.logger.info("\nTop 20 Most Important Features:")
+            self.logger.info(importance_df.head(20))
+
+            # Group features by type
+            def categorize_feature(feature_name):
+                if '_ctrS' in feature_name:
+                    return 'CTR'
+                elif '_te' in feature_name:
+                    return 'Target Encoded'
+                elif any(time_feature in feature_name.lower() for time_feature in ['day', 'hour', 'minute', 'weekday']):
+                    return 'Time-based'
+                elif 'duration' in feature_name.lower():
+                    return 'Duration-based'
+                else:
+                    return 'Other'
+
+            importance_df['feature_type'] = importance_df['feature'].apply(categorize_feature)
+
+            # Aggregate importance by feature type
+            type_importance = importance_df.groupby('feature_type')['importance'].sum().sort_values(ascending=False)
+
+            self.logger.info("\nFeature Importance by Type:")
+            self.logger.info(type_importance)
+
+            # Additional statistics
+            self.logger.info("\nFeature Importance Statistics:")
+            self.logger.info(f"Number of features: {len(importance_df)}")
+            self.logger.info(f"Mean importance: {importance_df['importance'].mean():.4f}")
+            self.logger.info(f"Median importance: {importance_df['importance'].median():.4f}")
+            self.logger.info(f"Standard deviation: {importance_df['importance'].std():.4f}")
+
+            return importance_df
+
+        except Exception as e:
+            self.logger.error(f"Error in analyze_feature_importance: {str(e)}")
+            return None
+
     r"""
      ____                  
     / ___|  __ ___   _____ 

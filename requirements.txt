@@ -17,3 +17,5 @@ optuna
 fastapi[standard]
 streamlit
 numpy
+plotly.express
+plotly
