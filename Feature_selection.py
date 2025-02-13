@@ -61,11 +61,7 @@ for k in n_features_list:
     # Create new model with updated categorical features
     model_new = CatBoostClassifier(
         **sample_params,
-        random_seed=42,
-        verbose=0,
-        eval_metric='PRAUC:type=Classic',
         cat_features=new_cat_features,
-        auto_class_weights='Balanced'
     )
     
     # Fit and evaluate
