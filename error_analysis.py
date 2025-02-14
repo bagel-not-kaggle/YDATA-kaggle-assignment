@@ -18,17 +18,23 @@ from bokeh.palettes import Category10
 from bokeh.io import output_file
 from bokeh.models import TabPanel  # Import TabPanel
 from bokeh.transform import dodge
+from sklearn.metrics import precision_recall_curve, auc, classification_report,f1_score
 
 class error_analysis():
     def __init__(self):
         pass
     
     def compute_final_df(self):  # Add self as the first parameter
-        predictions = pd.read_csv('data/Predictions/predictions_valcatboost.csv')
-        predictions_proba = pd.read_csv('data/Predictions/predictions_proba_valcatboost.csv')
+        predictions = pd.read_csv('data/predictions/predictions_valcatboost.csv')
+        predictions_proba = pd.read_csv('data/predictions/predictions_proba_valcatboost.csv')
         y_test = pd.read_pickle('data/processed/y_test.pkl')
         X_test = pd.read_pickle('data/processed/X_test.pkl')
         print("Unique values in y_test:", np.unique(y_test))
+        print(f1_score(y_test,predictions))
+        #compute prauc
+        precision, recall, _ = precision_recall_curve(y_test, predictions_proba.iloc[:, 1])
+        pr_auc = auc(recall, precision)
+        print(f"PRAUC: {pr_auc:.4f}")
 
         # Ensure y_test is binary and predictions_proba has shape (n_samples, 2)
         if predictions_proba.shape[1] != 2:
