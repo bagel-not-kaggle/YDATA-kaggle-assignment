@@ -137,9 +137,9 @@ class ModelTrainer:
         def objective(trial):
             # Define hyperparameters to optimize
             params = {   
-                "depth": trial.suggest_int("depth", 4, 10),
+                "depth": trial.suggest_int("depth", 4, 8),
                 "learning_rate": trial.suggest_float("learning_rate", 0.065, 0.15),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 16, 25),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 20, 30),
                 "random_strength": trial.suggest_float("random_strength", 1.5, 4.8),
                 "rsm": trial.suggest_float("rsm", 0.6, 1.0),
                 "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 24),
@@ -302,7 +302,8 @@ class ModelTrainer:
                 self.logger.warning(f"Selected features: {self.optimized_features}")
 
             self.logger.warning(f"X_train_cv shape: {X_train_cv.shape}")
-
+            cat_features = self.determine_categorical_features(X_train_cv)
+            
             if self.model_name == "catboost":
                 model = CatBoostClassifier(
                 cat_features=cat_features,
