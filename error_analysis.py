@@ -2,7 +2,7 @@ from sklearn.metrics import precision_recall_curve, auc, classification_report
 import pandas as pd
 import json
 import numpy as np
-from catboost import CatBoostClassifier
+from catboost import CatBoostClassifier, Pool
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -20,20 +20,47 @@ from bokeh.models import TabPanel  # Import TabPanel
 from bokeh.transform import dodge
 from sklearn.metrics import precision_recall_curve, auc, classification_report,f1_score
 import os
+from pathlib import Path
+from preprocess import DataPreprocessor
 
 class error_analysis():
     def __init__(self):
         pass
     
-    def compute_final_df(self):  # Add self as the first parameter
-        #script_dir = os.path.dirname(os.path.abspath(__file__))
-        predictions_proba = pd.read_csv(r"C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\data\Predictions\predictions_proba_valcatboost.csv")
-        predictions = pd.read_csv(r"C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\data\Predictions\predictions_valcatboost_temp.csv")
+
+    def compute_final_df(self):
+        # Load data
+        model_path = Path("models/best_model_catboost_newest.cbm")
         y_test = pd.read_pickle('data/processed/y_test.pkl')
         X_test = pd.read_pickle('data/processed/X_test.pkl')
-        print("Unique values in y_test:", np.unique(y_test))
-        print(f1_score(y_test,predictions))
-        #compute prauc
+
+        # Convert 'category' columns to 'object'
+        for col in X_test.columns:
+            if X_test[col].dtype.name == 'category':
+                X_test[col] = X_test[col].astype('object')
+
+        # Identify categorical features
+        processors = DataPreprocessor()
+        cat_features = processors.determine_categorical_features(X_test)
+        print("Categorical features:", cat_features)
+
+        # Load the model
+        model = CatBoostClassifier()
+        model.load_model(model_path)
+
+        # Create a Pool object with categorical features
+        test_pool = Pool(X_test, cat_features=cat_features)
+
+        # Make predictions using the Pool
+        predictions_proba = model.predict_proba(test_pool)
+        predictions = model.predict(test_pool)
+        predictions_proba = pd.DataFrame(predictions_proba, columns=['0', '1'])
+        print(predictions_proba.head())
+        predictions = pd.Series(predictions)
+
+        print("F1 score:", f1_score(y_test, predictions))
+
+        
         precision, recall, _ = precision_recall_curve(y_test, predictions_proba.iloc[:, 1])
         pr_auc = auc(recall, precision)
         print(f"PRAUC: {pr_auc:.4f}")

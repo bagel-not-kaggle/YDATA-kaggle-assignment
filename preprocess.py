@@ -5,6 +5,11 @@ import logging
 from sklearn.model_selection import StratifiedKFold
 import numpy as np
 from sklearn.preprocessing import TargetEncoder
+import os
+
+current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+parent_dir = str(current_dir.parent)
+
 
 class DataPreprocessor:
     def __init__(
@@ -749,7 +754,8 @@ class DataPreprocessor:
             if trained_preprocessor is None:
                 # Load training data logging
                 self.logger.info("\nLoading training data for reference...")
-                train_data = pd.read_csv("data/raw/train_dataset_full.csv")
+                train_data = pd.read_csv(Path(parent_dir) / "data" / "raw" / "train_dataset_full.csv")
+
                 train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
                 train_data = self.drop_completely_empty(train_data)
                 train_data.dropna(subset=["is_click"], inplace=True)
@@ -792,14 +798,13 @@ class DataPreprocessor:
                 df_test.drop(columns=["product_category_1", "product_category_2"], inplace=True)
                 log_dataset_stats(df_test, "After product category processing")
 
-            df_test = self.decrease_test_user_group_id(df_test)
-            log_dataset_stats(df_test, "After user group adjustment")
+            #df_test = self.decrease_test_user_group_id(df_test)
 
             df_test["is_click"] = -1
             df_test["DateTime"] = pd.to_datetime(df_test["DateTime"], errors="coerce")
 
-            df_test = self.deterministic_fill(df_test)
-            log_dataset_stats(df_test, "After deterministic fill")
+            #df_test = self.deterministic_fill(df_test)
+            #log_dataset_stats(df_test, "After deterministic fill")
 
             if self.fillna:
                 df_test = self.fill_missing_values(df_test)

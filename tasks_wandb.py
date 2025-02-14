@@ -103,7 +103,7 @@ def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
 @task(name="feature_selection")
 def feature_select(trainer, n_trials, run_id, folds_dir):
     model = CatBoostClassifier()
-    model_path = Path('models') / 'best_model_catboost.cbm'
+    model_path = Path('models') / 'best_model_catboost_newest.cbm'
     model.load_model(str(model_path))
     
     # Get feature importance and print column names for verification

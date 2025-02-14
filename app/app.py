@@ -41,7 +41,8 @@ class StreamlitApp:
 
     def load_model(self):
         """Load the CatBoost model"""
-        model_path = Path("models/best_model_catboost.cbm")
+
+        model_path = Path(parent_dir) / "models" / "best_model_catboost_newest.cbm"
         try:
             if not model_path.exists():
                 raise FileNotFoundError(f"Model file not found at {model_path}")
@@ -223,10 +224,10 @@ class StreamlitApp:
         try:
             with st.expander("Preprocessing Details", expanded=st.session_state.debug_mode):
                 processed_df = self.preprocess_test_data(df)
-
-            cat_features = processed_df.select_dtypes(include=['object', 'category']).columns.tolist()
+            preprocess = DataPreprocessor()
+            cat_features = preprocess.determine_categorical_features(processed_df)
             processed_df, cat_indices = self.prepare_features(processed_df, cat_features)
-
+            
             if st.session_state.debug_mode:
                 st.write("Feature Preparation Summary:")
                 st.write({
