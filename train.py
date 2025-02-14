@@ -405,7 +405,8 @@ class ModelTrainer:
         # Merge al validation folds for creating X_val
         X_val = pd.concat([pd.read_pickle(self.folds_dir / f"X_val_fold_{fold_index}.pkl") for fold_index in range(n_folds)], axis=0)
         y_val = pd.concat([pd.read_pickle(self.folds_dir / f"y_val_fold_{fold_index}.pkl") for fold_index in range(n_folds)], axis=0)
-        if self.select_features:
+        
+        if self.features_path is not None:
             X_train = X_train[self.optimized_features]
             X_val = X_val[self.optimized_features]
             X_test = X_test[self.optimized_features]

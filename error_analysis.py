@@ -48,8 +48,10 @@ class error_analysis():
         # Brier score calculation (for both classes)
         y_pred_proba = predictions_proba.iloc[:, 1]  # Probabilities for class 1
         brier = (y_pred_proba - y_test) ** 2
-        print("Brier Score:", np.mean(brier))
         calibration_error = np.abs(predictions_proba.iloc[:, 1] - y_test)
+        print("Brier Score:", np.mean(brier))
+        print("entropy:", np.mean(entropy)) 
+        print("calibration_error:", np.mean(calibration_error))
 
         # Expected Calibration Error (ECE)
         n_bins = 10
