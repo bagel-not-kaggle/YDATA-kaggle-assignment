@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import argparse
 import pandas as pd
 import logging
@@ -18,8 +19,19 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import ComplementNB, GaussianNB
 from sklearn.ensemble import StackingClassifier
+=======
+from sklearn.ensemble import RandomForestClassifier
+import pickle
 
+class Trainer:
+    def __init__(self):
+        self.model = RandomForestClassifier(random_state=42)
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 
+    def train_model(self, X_train, y_train):
+        self.model.fit(X_train, y_train)
+
+<<<<<<< HEAD
 class ModelTrainer:
     def __init__(self, folds_dir: str, test_file: str, model_name: str = "catboost",
                  callback=None, params=None, select_features=False,
@@ -494,3 +506,8 @@ if __name__ == "__main__":
         trainer.train_and_evaluate()
     
     
+=======
+    def save_model(self, file_path):
+        with open(file_path, 'wb') as f:
+            pickle.dump(self.model, f)
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539

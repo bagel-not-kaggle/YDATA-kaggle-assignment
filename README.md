@@ -12,21 +12,30 @@ project/
 │   └── processed/          # Cleaned and preprocessed data
 ├── models/                 # Saved model files
 ├── notebooks/
+<<<<<<< HEAD
 │   ├── ctr_analysis.ipynb  # Exploratory Data Analysis
     └── preprocessed.ipynb  # Exploring our processed files
+=======
+│   └── ctr_analysis.ipynb  # Exploratory Data Analysis
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 ├── app/                    # Application code
 └── src/
     ├── preprocess.py      # Data preprocessing pipeline
     ├── features.py        # Feature engineering
     ├── train.py           # Model training
     ├── predict.py         # Model prediction
+<<<<<<< HEAD
     ├── results.py         # Results analysis
     ├── tasks.py           # Automated workflow
+=======
+    └── results.py         # Results analysis
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 ```
 
 ## Dataset Description
 Our dataset includes comprehensive user interaction records with the following features:
 
+<<<<<<< HEAD
 ## Full Features list:
 session_id, DateTime, user_id, webpage_id,
 
@@ -38,6 +47,8 @@ user_group_id, gender, age_level, user_depth, city_development_index,
 
 **is_click**
 
+=======
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 ### User Features
 - User Demographics (age, gender)
 - User Behavior Metrics
@@ -52,11 +63,16 @@ user_group_id, gender, age_level, user_depth, city_development_index,
 - Product Categories
 - Campaign Details
 
+<<<<<<< HEAD
 ### Wildcard
 - *var_1*
 
 ### Target Variable
 - **Click Status (is_click)**
+=======
+### Target Variable
+- Click Status (is_click)
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 
 ## Installation & Setup
 
@@ -125,21 +141,34 @@ python train.py -m rf
 ```bash
 git checkout -b feature/YourFeature
 ```
+<<<<<<< HEAD
 3. Add your changes:
 ```bash
 git add files or .
 ```
 4. Commit your changes:
+=======
+
+3. Commit your changes:
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 ```bash
 git commit -m 'Add some feature'
 ```
 
+<<<<<<< HEAD
 5. Push to the branch:
+=======
+4. Push to the branch:
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 ```bash
 git push origin feature/YourFeature
 ```
 
+<<<<<<< HEAD
 6. Create a new Pull Request
+=======
+5. Create a new Pull Request
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539
 
 ## Team Members
 - Shay

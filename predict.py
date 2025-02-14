@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import pandas as pd
 import numpy as np
 import argparse
@@ -65,3 +66,18 @@ if __name__ == "__main__":
     for metric_name, value in metrics.items():
         logger.info(f"{metric_name}: {value:.3f}")
 
+=======
+import pickle
+import numpy as np
+
+class Predictor:
+    def __init__(self, model_path):
+        with open(model_path, 'rb') as f:
+            self.model = pickle.load(f)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def save_results(self, predictions, file_path):
+        np.savetxt(file_path, predictions, delimiter=',', fmt='%d')
+>>>>>>> d9649fbb6f5d050a9eb6d56ee63254a8667d7539

@@ -1,31 +1,61 @@
 name: Deploy to Nebius VM
-
 on:
-  push:
-    branches:
-      - main  # Change to your deployment branch
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Checkout the code
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Set up SSH key
+      - name: Check Required Secrets
+        run: |
+          if [ -z "${{ secrets.NEBIUS_SSH_KEY }}" ] || \
+             [ -z "${{ secrets.NEBIUS_SSH_USER }}" ] || \
+             [ -z "${{ secrets.NEBIUS_VM_HOST }}" ]; then
+            echo "Missing required secrets"
+            exit 1
+          fi
+
       - name: Setup SSH Key
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.NEBIUS_SSH_KEY }}
 
-      # Step 3: Sync code to Nebius VM
-      - name: Sync Code to Nebius VM with Sudo
+      - name: Add Known Hosts
+        run: ssh-keyscan -H ${{ secrets.NEBIUS_VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Prepare Destination Directory
         run: |
-          rsync -e "ssh -o StrictHostKeyChecking=no" \
-          ./preprocess.py \
-          ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:/usr/src
-          ssh -o StrictHostKeyChecking=no ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << 'EOF'
-          sudo chown -R root:root /usr/src
+          echo "Creating the project directory on the VM if it doesn't exist..."
+          ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << EOF
+            sudo mkdir -p /usr/src/my_project
+            sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} /usr/src/my_project
+          EOF
+
+      - name: Sync Selected Files and Folders to Nebius VM
+        run: |
+          echo "Syncing selected files and folders to the VM..."
+          
+          # Define the project directory
+          PROJECT_DIR="/usr/src/my_project"
+
+          # Rsync only the specified files and folders
+          rsync -avz --delete \
+            --include='train.py' \
+            --include='predict.py' \
+            --include='preprocess.py' \
+            --include='tasks.py' \
+            --include='utils/***' \
+            --include='models/***' \
+            --include='data/***' \
+            --include='config/***' \
+            --exclude='*' \
+            -e "ssh" ./ ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }}:$PROJECT_DIR
+          
+          # Set proper permissions on the synced directory
+          ssh ${{ secrets.NEBIUS_SSH_USER }}@${{ secrets.NEBIUS_VM_HOST }} << EOF
+            sudo chown -R ${{ secrets.NEBIUS_SSH_USER }}:${{ secrets.NEBIUS_SSH_USER }} $PROJECT_DIR
+            sudo chmod -R 755 $PROJECT_DIR
           EOF
