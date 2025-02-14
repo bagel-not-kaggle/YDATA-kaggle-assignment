@@ -2,19 +2,28 @@ import sys
 import os
 from pathlib import Path
 import plotly.express as px
-
-# Add the parent directory to system path before any other imports
-current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-parent_dir = str(current_dir.parent)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-# Now import other modules
 import numpy as np
 import streamlit as st
 import pandas as pd
 from catboost import CatBoostClassifier, Pool
+from pathlib import Path
+
+# Define paths
+current_dir = Path(os.path.dirname(os.path.abspath(__file__)))  # Path to app/
+parent_dir = current_dir.parent  # Path to YDATA-kaggle-assignment/
+
+# Add the root directory to sys.path
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+
+# Debugging: Print paths
+print(f"Current directory: {current_dir}")
+print(f"Parent directory: {parent_dir}")
+print(f"sys.path: {sys.path}")
+
+# Now import preprocess
 from preprocess import DataPreprocessor
+
 
 
 class StreamlitApp:
@@ -42,7 +51,9 @@ class StreamlitApp:
     def load_model(self):
         """Load the CatBoost model"""
 
-        model_path = Path(parent_dir) / "models" / "best_model_catboost_newest.cbm"
+        # Change from current_dir to parent_dir
+        model_path = parent_dir / "models" / "best_model_catboost_newest.cbm"  # Updated path
+
         try:
             if not model_path.exists():
                 raise FileNotFoundError(f"Model file not found at {model_path}")
@@ -131,7 +142,7 @@ class StreamlitApp:
                         st.text(message)
 
             preprocessor = DataPreprocessor(
-                output_path=Path("data/processed"),
+                output_path=current_dir / "data" / "processed",  # Updated path
                 remove_outliers=False,
                 fillna=True,
                 save_as_pickle=False,

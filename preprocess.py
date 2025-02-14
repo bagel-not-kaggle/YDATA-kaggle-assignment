@@ -18,7 +18,7 @@ parent_dir = str(current_dir.parent)
 class DataPreprocessor:
     def __init__(
         self,
-        output_path: Path = Path("data/processed"),
+        output_path: Path = current_dir / "data/processed",
         remove_outliers: bool = False,
         fillna: bool = False,
         use_dummies: bool = False,
@@ -758,7 +758,8 @@ class DataPreprocessor:
             if trained_preprocessor is None:
                 # Load training data logging
                 self.logger.info("\nLoading training data for reference...")
-                train_data = pd.read_csv(Path(parent_dir) / "data" / "raw" / "train_dataset_full.csv")
+                train_data_path = current_dir / "data/raw/train_dataset_full.csv"
+                train_data = pd.read_csv(train_data_path)
 
                 train_data["DateTime"] = pd.to_datetime(train_data["DateTime"], errors="coerce")
                 train_data = self.drop_completely_empty(train_data)
