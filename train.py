@@ -138,32 +138,32 @@ class ModelTrainer:
             # Define hyperparameters to optimize
             params = {   
                 "depth": trial.suggest_int("depth", 4, 8),
-                "learning_rate": trial.suggest_float("learning_rate", 0.065, 0.15),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 20, 30),
-                "random_strength": trial.suggest_float("random_strength", 1.5, 4.8),
+                "learning_rate": trial.suggest_float("learning_rate", 0.09, 0.15),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 20, 26),
+                "random_strength": trial.suggest_float("random_strength", 4, 4.8),
                 "rsm": trial.suggest_float("rsm", 0.6, 1.0),
-                "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 24),
-                "bootstrap_type": trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli"]),
+                "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 8, 20),
+                "bootstrap_type": "Bernoulli",
                 "iterations": 1000,
-                #"eval_metric": trial.suggest_categorical("eval_metric", ["F1", "PRAUC:type=Classic"]),
                 "auto_class_weights": "Balanced",
+                "subsample" : trial.suggest_float("subsample", 0.5, 0.9),
                 "early_stopping_rounds": 100,
-                
+                "grow_policy": "SymmetricTree",
                 "random_seed": 42,
                 "verbose": 0,
             }
 
-            if params["bootstrap_type"] == "Bayesian":
-                params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.6, 1.5)
-                params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"])
-            elif params["bootstrap_type"] == "Bernoulli":
-                params["subsample"] = trial.suggest_float("subsample", 0.5, 0.9)
-                params["grow_policy"] = "SymmetricTree"
+            #if params["bootstrap_type"] == "Bayesian":
+             #   params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0.6, 1.5)
+              #  params["grow_policy"] = trial.suggest_categorical("grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"])
+            #elif params["bootstrap_type"] == "Bernoulli":
+             #   params["subsample"] = trial.suggest_float("subsample", 0.5, 0.9)
+                #params["grow_policy"] = "SymmetricTree"
 
-            if params['grow_policy'] == 'Depthwise':    
-                params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 18)
-            elif params['grow_policy'] == 'Lossguide':
-                params['max_leaves'] = trial.suggest_int("max_leaves", 45, 64)
+            #if params['grow_policy'] == 'Depthwise':    
+             #   params['min_data_in_leaf'] = trial.suggest_int("min_data_in_leaf", 3, 18)
+            #elif params['grow_policy'] == 'Lossguide':
+             #   params['max_leaves'] = trial.suggest_int("max_leaves", 45, 64)
             
             if self.callback:
                 self.callback({"trial_params": params})
@@ -210,6 +210,8 @@ class ModelTrainer:
                 "early_stopping_rounds": 100,
                 "random_seed": 42,
                 "eval_metric": "PRAUC:type=Classic",
+                "grow_policy": "SymmetricTree",
+                "bootstrap_type": "Bernoulli",
                 "verbose": 0,
              }
         best_params = {**study.best_params, **constant_params}
