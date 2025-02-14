@@ -19,14 +19,16 @@ from bokeh.io import output_file
 from bokeh.models import TabPanel  # Import TabPanel
 from bokeh.transform import dodge
 from sklearn.metrics import precision_recall_curve, auc, classification_report,f1_score
+import os
 
 class error_analysis():
     def __init__(self):
         pass
     
     def compute_final_df(self):  # Add self as the first parameter
-        predictions = pd.read_csv('data/predictions/predictions_valcatboost.csv')
-        predictions_proba = pd.read_csv('data/predictions/predictions_proba_valcatboost.csv')
+        #script_dir = os.path.dirname(os.path.abspath(__file__))
+        predictions_proba = pd.read_csv(r"C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\data\Predictions\predictions_proba_valcatboost.csv")
+        predictions = pd.read_csv(r"C:\Users\maorb\Classes\Classical_ML\YDATA-kaggle-assignment\data\Predictions\predictions_valcatboost_temp.csv")
         y_test = pd.read_pickle('data/processed/y_test.pkl')
         X_test = pd.read_pickle('data/processed/X_test.pkl')
         print("Unique values in y_test:", np.unique(y_test))

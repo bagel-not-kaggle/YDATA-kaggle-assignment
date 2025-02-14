@@ -12,6 +12,7 @@ from catboost import CatBoostClassifier
 import panel as pn
 from bokeh.resources import INLINE
 hv.extension("bokeh", logo=False)
+from error_analysis import error_analysis
 
 """
 +-+-+-+ +-+-+-+-+-+-+-+-+-+
@@ -101,23 +102,22 @@ def tune_hyperparameters(trainer, folds_dir, n_trials, run_id):
 
 @task(name="feature_selection")
 def feature_select(trainer, n_trials, run_id, folds_dir):
-    X_train = pd.read_pickle(Path(folds_dir) / "X_train.pkl")
-    y_train = pd.read_pickle(Path(folds_dir) / "y_train.pkl").squeeze()
+    model = CatBoostClassifier()
+    model_path = Path('models') / 'best_model_catboost.cbm'
+    model.load_model(str(model_path))
     
-    # Get feature selection results
-    best_features, feature_importance, feature_names = trainer.feature_selection(
-        X_train, 
-        y_train, 
-        n_trials=n_trials, 
-        run_id=run_id,
-        tune=False,
-    )
+    # Get feature importance and print column names for verification
+    feature_importance = model.get_feature_importance(prettified=True)
+    print("Available columns:", feature_importance.columns)
+    
+    # Use correct column names from CatBoost output
+    feature_names = feature_importance.iloc[:, 0].tolist()  # First column for feature names
+    importance_values = feature_importance.iloc[:, 1].astype(float).tolist()  # Second column for importance values
     
     # Create visualization data
-    feature_data = list(zip(feature_names, feature_importance))
-    feature_data.sort(key=lambda x: x[1], reverse=True) # 
+    feature_data = list(zip(feature_names, importance_values))
+    feature_data.sort(key=lambda x: x[1], reverse=True)
     sorted_features, sorted_importance = zip(*feature_data)
-    
     
     # Create holoviews bar plot
     bars = hv.Bars((sorted_features, sorted_importance), 'Features', 'Importance')
@@ -129,24 +129,24 @@ def feature_select(trainer, n_trials, run_id, folds_dir):
         xrotation=45
     )
     
-    # Save to HTML
     html_file_name = "feature_importance.html"
     pn.pane.HoloViews(bars).save(html_file_name)
     
-    # Log to wandb
     wandb_html = wandb.Html(html_file_name)
     table = wandb.Table(columns=["Feature_Importance_Plot"], data=[[wandb_html]])
     
     wandb.log({
         "Feature_Importance_Table": table,
-        "Selected Features Count": len(best_features),
+        "Selected Features Count": len(feature_names),
         "Selected Features": wandb.Table(
-            data=[[feat] for feat in best_features],
+            data=[[feat] for feat in feature_names],
             columns=["Feature"]
         )
     })
     
-    return best_features, feature_importance, feature_names
+    return feature_names, importance_values, feature_names
+
+
 
 
 
@@ -199,9 +199,30 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback,
     return results
 
 @task(name="Error Analysis")
-def error_analysis():
-    model = CatBoostClassifier()
-    model.load_model('data/processed/best_model_catboost.cbm')
+def error_analyze(categorical_columns=['product', 'campaign_id', 'user_group_id', 'age_level', 'user_depth', 'city_development_index']):
+    analyzer = error_analysis()
+    df, ece = analyzer.compute_final_df()
+    
+    # Save the error analysis data
+    df.to_csv('data/Predictions/error_analysis.csv', index=False)
+    
+    # Create and save the interactive visualization
+    analyzer.create_interactive_plot(df, categorical_columns)
+    
+    # Similar to feature selection task, log the HTML to wandb
+    html_file_name = "error_analysis.html"
+    wandb_html = wandb.Html(html_file_name)
+    table = wandb.Table(columns=["Error_Analysis_Plot"], data=[[wandb_html]])
+    
+    # Log metrics and visualizations to wandb
+    wandb.log({
+        "Error_Analysis_Visualization": table,
+        "Expected_Calibration_Error": ece,
+        "Error_Analysis_Data": wandb.Table(dataframe=df)
+    })
+    
+    return df, ece
+
     
 """
 +-+-+-+-+ +-+-+-+-+
@@ -223,6 +244,7 @@ def preprocess_and_train_flow(
     tune: bool = False,
     best_features: bool = False,
     select_features: bool = False,
+    analyze_errors: bool = False,
     train: bool = False,
     params=None
 ):
@@ -267,17 +289,12 @@ def preprocess_and_train_flow(
         params=best_params_path
     )
 
-    best_features = None
+    
+    
     if best_features:
-        best_features, feature_importance, feature_names  = feature_select(base_trainer, n_trials, run_id, folds_dir)
+        # Run feature selection and wait for results
+        best_features, feature_importance, feature_names = feature_select(base_trainer, n_trials, run_id, folds_dir)
         wandb.config.update({"selected_features": list(best_features)})
-        base_trainer = ModelTrainer(
-        folds_dir=folds_dir,
-        test_file=test_file,
-        model_name=model_name,
-        callback=wandb_callback,
-        params=best_params_path,
-    )
 
 
         
@@ -292,6 +309,8 @@ def preprocess_and_train_flow(
         train_model(best_params_path, folds_dir, test_file, 
                     model_name, wandb_callback, run_id, features_path=features_path, select_features=select_features)
 
+    if analyze_errors:
+        error_analyze()
 
     wandb.finish()
 
@@ -315,6 +334,7 @@ if __name__ == "__main__":
     parser.add_argument("--best_features", action='store_true', help="Run feature selection step.")
     parser.add_argument("--select_features", action='store_true', help="Run feature selection step.")
     parser.add_argument("--train", action='store_true', help="Run training step.")
+    parser.add_argument("--analyze_errors", action='store_true', help="Run error analysis step.")
     parser.add_argument("--params", type=str, default=None, help="Path to the best hyperparameters JSON file.")
 
     args = parser.parse_args()
@@ -332,6 +352,7 @@ if __name__ == "__main__":
         tune=args.tune,
         best_features=args.best_features,
         select_features= args.select_features,
+        analyze_errors=args.analyze_errors,
         train=args.train,
         params=args.params
     )
