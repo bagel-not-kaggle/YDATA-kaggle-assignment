@@ -103,7 +103,7 @@ class ModelTrainer:
 
         if self.select_features:
 
-            with open("data/Hyperparams/best_params115.json", 'r') as f:
+            with open("data/Hyperparams/best_params116.json", 'r') as f:
                 best_params = json.load(f)
             model = CatBoostClassifier(cat_features = cat_features, **best_params)
             self.logger.info("Starting feature selection")
@@ -111,7 +111,7 @@ class ModelTrainer:
                 X=X_train,
                 y=y_train,
                 eval_set=(X_val, y_val),
-                num_features_to_select=24,
+                num_features_to_select=31,
                 train_final_model= False,
                 features_for_select=list(range(X_train.shape[1])),
                 algorithm="RecursiveByShapValues",
