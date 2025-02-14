@@ -8,6 +8,7 @@ import numpy as np
 import json
 import argparse
 import holoviews as hv
+from catboost import CatBoostClassifier
 import panel as pn
 from bokeh.resources import INLINE
 hv.extension("bokeh", logo=False)
@@ -197,6 +198,11 @@ def train_model(trainer_params, folds_dir, test_file, model_name, callback,
     
     return results
 
+@task(name="Error Analysis")
+def error_analysis():
+    model = CatBoostClassifier()
+    model.load_model('data/processed/best_model_catboost.cbm')
+    
 """
 +-+-+-+-+ +-+-+-+-+
 |M|a|i|n| |F|l|o|w|

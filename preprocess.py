@@ -239,8 +239,9 @@ class DataPreprocessor:
 
             # Handle product category
             if 'product_category_1' in df.columns and 'campaign_id' in df.columns:
-                df = self.infer_by_col(df, "product_category_1", key_col='campaign_id',
-                                       mapping_df=df[df.campaign_id == 396664])
+                if 396664 in df.campaign_id.unique():
+                    df = self.infer_by_col(df, "product_category_1", key_col='campaign_id',
+                                        mapping_df=df[df.campaign_id == 396664])
 
             # Handle webpage and campaign IDs
             if 'webpage_id' in df.columns and 'campaign_id' in df.columns:
@@ -250,8 +251,10 @@ class DataPreprocessor:
 
             # Handle product category by webpage
             if 'product_category_1' in df.columns and 'webpage_id' in df.columns:
-                df = self.infer_by_col(df, "product_category_1", key_col='webpage_id',
-                                       mapping_df=df[df.webpage_id == 51181])
+                # MAke sure df.webpage_id == 51181 in the dataset
+                if 51181 in df.webpage_id.unique():
+                    df = self.infer_by_col(df, "product_category_1", key_col='webpage_id',
+                                        mapping_df=df[df.webpage_id == 51181])
 
             # Handle gender and age by user group
             if 'gender' in df.columns and 'user_group_id' in df.columns:
@@ -262,8 +265,9 @@ class DataPreprocessor:
                 df = self.infer_by_col(df, "age_level", key_col='user_group_id')
 
             if 'user_group_id' in df.columns and 'age_level' in df.columns:
-                df = self.infer_by_col(df, "user_group_id", key_col='age_level',
-                                       mapping_df=df[df.age_level == 0])
+                if 0 in df.age_level.unique():
+                    df = self.infer_by_col(df, "user_group_id", key_col='age_level',
+                                        mapping_df=df[df.age_level == 0])
 
             # Handle user group by age and gender
             if all(col in df.columns for col in ["user_group_id", "age_level", "gender"]):
@@ -766,18 +770,15 @@ class DataPreprocessor:
                 self.te.fit(train_data[cols_to_encode], train_data["is_click"].astype(int))
                 self.logger.info("Fitted TargetEncoder")
 
+                train_data = self.smooth_ctr(train_data, cols_to_encode, subset="train")
+                self.logger.info("Fitted CTR Smoothing")
+
+
                 # Prepare CTR mappings with logging
-                self.global_ctrs = {}
-                self.ctr_maps = {}
-                for col in cols_to_encode:
-                    if col in train_data.columns:
-                        self.global_ctrs[col] = train_data['is_click'].mean()
-                        self.logger.info(f"Global CTR for {col}: {self.global_ctrs[col]:.4f}")
+                
             else:
                 self.logger.info("Using pre-fitted preprocessor")
                 self.te = trained_preprocessor.te
-                self.global_ctrs = trained_preprocessor.global_ctrs
-                self.ctr_maps = trained_preprocessor.ctr_maps
 
             # Track each transformation
             df_test = self.drop_completely_empty(df_test).copy()
